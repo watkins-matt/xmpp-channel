@@ -631,14 +631,20 @@ function setupMessageHandler(
       replyToId,
       replyToBody,
       // XEP-0359: Capture server-assigned stanza-id (preferred for reactions/references)
-      // Also check stanza's 'id' attribute which some clients (like Gajim) use directly
+      // For MUC: MUST use stanza-id with 'by' attribute matching room JID (per XEP-0444)
+      // For DMs: Use stanza-id or fall back to stanza's 'id' attribute
       stanzaId: (() => {
-        // First try XEP-0359 stanza-id element
         const stanzaIdEl = stanza.getChild("stanza-id", "urn:xmpp:sid:0");
         if (stanzaIdEl?.attrs?.id) {
+          // For MUC, verify the 'by' attribute matches the room JID
+          if (isGroupchat && roomJid) {
+            const byAttr = stanzaIdEl.attrs.by;
+            if (byAttr && bareJid(byAttr) === bareJid(roomJid)) {
+              return stanzaIdEl.attrs.id;
+            }
+          }
           return stanzaIdEl.attrs.id;
         }
-        // Fall back to stanza's 'id' attribute (used by Gajim and others)
         return stanza.attrs.id || undefined;
       })(),
       // Raw stanza 'id' attribute (some clients like Gajim use this directly)

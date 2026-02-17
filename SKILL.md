@@ -1,11 +1,28 @@
-# XMPP Channel Skill
+# SKILL.md - XMPP Reactions Support
 
-## Reactions
+## Purpose
+This skill enables emoji reactions for messages via the XMPP plugin on OpenClaw. It supports sending, receiving, and debugging emoji reactions to ensure compatibility with XMPP clients like Conversations and Gajim.
 
-When using `action=react` with the XMPP channel:
+## Features
+- **React to Messages:** Add emoji reactions to specific message IDs using the `message action=react` functionality.
+- **Debug Reactions:** Capture and inspect stanzas related to reactions for troubleshooting or standards compliance.
+- **Test Automation:** Simulate reactions and validate behavior programmatically.
 
-- **messageId is REQUIRED** - You MUST include the `messageId` parameter pointing to the message you want to react to
-- The messageId is the stanza-id of the inbound message (shown in conversation context)
-- Example: `message action=react channel=xmpp target=user@xmpp-server.com messageId=abc-123-def emoji=👍`
+## Instructions
 
-Without messageId, the reaction will fail.
+### Adding Emoji Reactions
+1. Ensure the XMPP plugin is active and configured.
+2. Use the `message` tool with the following parameters:
+    - `action`: Set to `react`.
+    - `channel`: Set to `xmpp`.
+    - `messageId`: The ID of the message you want to react to.
+    - `emoji`: The emoji you want to use as a reaction.
+
+Example:
+```json
+{
+  "action": "react",
+  "channel": "xmpp",
+  "messageId": "1234567890",
+  "emoji": "👍"
+}

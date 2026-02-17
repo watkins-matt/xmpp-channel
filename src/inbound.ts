@@ -14,6 +14,7 @@ import type { XmppConfig, XmppInboundMessage, Logger, ChannelAccountStatusPatch 
 import { activeClients, recordInboundMessageId } from "./state.js";
 import { sendChatState, sendChatMarker } from "./chat-state.js";
 import { isOmemoEnabled, encryptOmemoMessage, encryptMucOmemoMessage, isRoomOmemoCapable, buildOmemoMessageStanza } from "./omemo/index.js";
+import { getOccupantRealJid } from "./omemo/muc-occupants.js";
 
 /**
  * Generate a proper XMPP message ID
@@ -57,10 +58,29 @@ export async function handleInboundMessage(
       log?.debug?.(`[XMPP] Group message allowed (groupPolicy: open)`);
     } else {
       // Allowlist policy - check groupAllowFrom (falls back to allowFrom)
+      // For group messages, we need to check the sender's REAL JID, not the room JID
+      // The occupant JID is room@conference/nick, so we need to look up the real JID
       const groupAllowList = normalizeAllowFrom(config.groupAllowFrom ?? config.allowFrom);
-      if (!isSenderAllowed(groupAllowList, senderBare)) {
-        log?.debug?.(`[XMPP] Group message blocked: ${senderBare} not in groupAllowFrom`);
-        return;
+      
+      // Try to get the sender's real JID from MUC occupant tracking
+      const senderNick = message.senderNick;
+      const roomJid = message.roomJid;
+      const realSenderJid = (senderNick && roomJid) 
+        ? getOccupantRealJid(accountId, roomJid, senderNick) 
+        : null;
+      
+      if (realSenderJid) {
+        // Non-anonymous room - check real JID against allowlist
+        if (!isSenderAllowed(groupAllowList, realSenderJid)) {
+          log?.debug?.(`[XMPP] Group message blocked: ${realSenderJid} (real JID for ${senderNick}) not in groupAllowFrom`);
+          return;
+        }
+        log?.debug?.(`[XMPP] Group message allowed: ${realSenderJid} in groupAllowFrom`);
+      } else {
+        // Anonymous/semi-anonymous room - can't verify real JID
+        // Allow message since the room is already configured in 'groups'
+        // If admin wants stricter control, they should use a non-anonymous room
+        log?.debug?.(`[XMPP] Group message allowed (anonymous room, cannot verify real JID for ${senderNick})`);
       }
     }
   } else {
@@ -155,8 +175,11 @@ export async function handleInboundMessage(
 
   // Record the inbound message ID for potential reaction fallback
   // This helps when AI passes wrong messageId - we can use the most recent message as fallback
-  // Prefer rawStanzaId (stanza's 'id' attr used by Gajim) > stanzaId (XEP-0359) > id
-  const inboundMessageId = message.rawStanzaId || message.stanzaId || message.id;
+  // For MUC: MUST use stanzaId (XEP-0359 stanza-id) per XEP-0444 - the stanza's 'id' attr MUST NOT be used
+  // For DMs: Prefer rawStanzaId (stanza's 'id' attr used by Gajim) > stanzaId (XEP-0359) > id
+  const inboundMessageId = message.isGroup
+    ? (message.stanzaId || message.id)  // MUC: stanza-id is required for reactions
+    : (message.rawStanzaId || message.stanzaId || message.id);  // DM: any ID works
   if (inboundMessageId) {
     // For DMs, record with senderBare
     if (!message.isGroup && senderBare) {
@@ -483,9 +506,22 @@ export async function handleInboundReaction(params: {
       log?.debug?.(`[XMPP] Group reaction allowed (groupPolicy: open)`);
     } else {
       const groupAllowList = normalizeAllowFrom(config.groupAllowFrom ?? config.allowFrom);
-      if (!isSenderAllowed(groupAllowList, senderBare)) {
-        log?.debug?.(`[XMPP] Group reaction blocked: ${senderBare} not in groupAllowFrom`);
-        return;
+      
+      // Try to get the sender's real JID from MUC occupant tracking
+      const realSenderJid = (senderNick && roomJid) 
+        ? getOccupantRealJid(accountId, roomJid, senderNick) 
+        : null;
+      
+      if (realSenderJid) {
+        // Non-anonymous room - check real JID against allowlist
+        if (!isSenderAllowed(groupAllowList, realSenderJid)) {
+          log?.debug?.(`[XMPP] Group reaction blocked: ${realSenderJid} (real JID for ${senderNick}) not in groupAllowFrom`);
+          return;
+        }
+        log?.debug?.(`[XMPP] Group reaction allowed: ${realSenderJid} in groupAllowFrom`);
+      } else {
+        // Anonymous/semi-anonymous room - can't verify real JID
+        log?.debug?.(`[XMPP] Group reaction allowed (anonymous room, cannot verify real JID for ${senderNick})`);
       }
     }
   } else {

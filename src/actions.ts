@@ -18,16 +18,17 @@ import {
 } from "./omemo/index.js";
 
 /**
- * Resolve the full JID for a MUC message (includes nick)
- * For groupchat, we need to include our nick in the 'to' attribute
+ * Resolve the target JID for a message.
+ * For MUC (groupchat), messages are sent to the bare room JID without a resource.
+ * The /nickname resource is only used when JOINING a room, not when sending messages.
  */
-function resolveMucTarget(targetJid: string, isMuc: boolean, config: { nickname?: string }): string {
+function resolveMucTarget(targetJid: string, isMuc: boolean, _config: { nickname?: string }): string {
   if (!isMuc) {
     return targetJid;
   }
-  // Use configured nickname, or extract from JID if not set
-  const nick = config.nickname || targetJid.split("@")[0].split("/")[0];
-  return `${targetJid}/${nick}`;
+  // For MUC, always use bare room JID (no resource/nickname)
+  // Messages to MUC rooms go to room@service, not room@service/nick
+  return bareJid(targetJid);
 }
 
 /**
@@ -121,13 +122,12 @@ export async function handleXmppAction(params: {
     // We need to look up the server-assigned ID, or use fallback if AI passes wrong ID.
     const serverMessageId = getServerMessageId(account.accountId, messageId, targetJid);
 
+    // Build reactions element - use simple xml() call which works correctly
+    // (The c()/t() approach causes circular JSON errors, but the simple approach works)
     const reactionsEl = remove
       ? xml("reactions", { id: serverMessageId, xmlns: "urn:xmpp:reactions:0" })
-      : xml(
-          "reactions",
-          { id: serverMessageId, xmlns: "urn:xmpp:reactions:0" },
-          xml("reaction", {}, emoji || "👍")
-        );
+      : xml("reactions", { id: serverMessageId, xmlns: "urn:xmpp:reactions:0" },
+          xml("reaction", {}, emoji || "👍"));
 
     const reactionMsgId = `reaction_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -180,7 +180,6 @@ export async function handleXmppAction(params: {
         );
 
         console.log(`[XMPP:actions] Sending OMEMO + plaintext reaction sibling: to=${resolvedTarget} type=${msgType} refId=${serverMessageId} emoji=${emoji || "👍"}`);
-        console.log(`[XMPP:actions] Full reaction stanza: ${message.toString()}`);
         await client.send(message);
       } else {
         // Encryption failed — fall back to plaintext reaction only
@@ -189,28 +188,24 @@ export async function handleXmppAction(params: {
         const message = xml(
           "message",
           { to: resolvedTarget, type: msgType, id: reactionMsgId },
-          xml("body", {}, ""),  // Empty body - let the reactions element handle display
           reactionsEl,
           xml("store", { xmlns: "urn:xmpp:hints" })
         );
-        console.log(`[XMPP:actions] Full fallback reaction stanza: ${message.toString()}`);
         await client.send(message);
       }
     } else {
       // No OMEMO — send plaintext reaction
-      // Use empty body - some clients (like Conversations) may show body text instead of emoji
-      // The <reactions> element should be interpreted as emoji display per XEP-0444
+      // Note: Don't include empty body - it can cause issues with some clients (like Gajim)
+      // The <reactions> element is sufficient per XEP-0444
       const resolvedTarget = resolveMucTarget(targetJid, isMuc, config);
       const message = xml(
         "message",
         { to: resolvedTarget, type: msgType, id: reactionMsgId },
-        xml("body", {}, ""),  // Empty body - let the reactions element handle display
         reactionsEl,
         xml("store", { xmlns: "urn:xmpp:hints" })
       );
 
       console.log(`[XMPP:actions] Sending plaintext reaction: to=${resolvedTarget} type=${msgType} refId=${serverMessageId} emoji=${emoji || "👍"}`);
-      console.log(`[XMPP:actions] Full reaction stanza: ${message.toString()}`);
       await client.send(message);
     }
 

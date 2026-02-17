@@ -172,6 +172,9 @@ declare module "@xmpp/client" {
     text(): string;
     children?: Array<Element | string>;
     toString(): string;
+    // Builder methods from ltx Element class
+    c(name: string, attrs?: Record<string, string>): Element;
+    t(text: string): Element;
   }
 }
 

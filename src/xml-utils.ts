@@ -104,39 +104,16 @@ export function waitForIq(
 // PLUGIN META
 // =============================================================================
 
-/**
- * Read the plugin version from package.json at build time.
- *
- * Falls back to "unknown" if the import somehow fails at runtime
- * (e.g. when running from a bundled context that strips JSON imports).
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _pkg: { version: string } | null = null;
-
-async function loadPkg(): Promise<{ version: string }> {
-  if (_pkg) return _pkg;
-  try {
-    // Dynamic import so the path is resolved relative to compiled output
-    const mod = await import("../package.json", { assert: { type: "json" } });
-    _pkg = mod.default ?? mod;
-    return _pkg!;
-  } catch {
-    _pkg = { version: "unknown" };
-    return _pkg;
-  }
-}
-
-/** Cached plugin version string */
-let _pluginVersion: string | null = null;
+/** Plugin version - must be updated manually when package.json version changes */
+// eslint-disable-next-line @typescript-eslint/no-inferrable-types
+export const PLUGIN_VERSION: string = "0.4.0";
 
 /**
- * Get the plugin version (reads from package.json on first call, then caches)
+ * Get the plugin version.
+ * Version is embedded at build time to avoid JSON import issues.
  */
 export async function getPluginVersion(): Promise<string> {
-  if (_pluginVersion) return _pluginVersion;
-  const pkg = await loadPkg();
-  _pluginVersion = pkg.version;
-  return _pluginVersion;
+  return PLUGIN_VERSION;
 }
 
 /** Plugin display name */

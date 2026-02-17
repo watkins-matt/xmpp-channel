@@ -118,6 +118,55 @@ XMPP/Jabber channel plugin for OpenClaw, supporting Prosody, ejabberd, and other
 - **pairing** — Guests get a pairing code; approve via `openclaw pairing approve xmpp:<code>`
 - **allowlist** — Only owner JIDs and JIDs in `dmAllowlist` may direct-chat; owners cannot be removed by the agent
 
+## Group Chat Policies
+
+- **open** — Respond to all messages in configured group rooms
+- **allowlist** — Only respond to messages from JIDs in `groupAllowFrom` (falls back to `allowFrom`)
+
+### Important: Non-Anonymous Rooms Required for `groupAllowFrom`
+
+For `groupAllowFrom` to work properly, your MUC rooms must be configured as **non-anonymous**. In non-anonymous rooms, the server includes the sender's real JID in presence stanzas, which the plugin uses to verify the sender against the allowlist.
+
+**Room Anonymity Types:**
+
+| Type | Who Can See Real JIDs | Default in Prosody? |
+|------|----------------------|---------------------|
+| Non-anonymous | Everyone in the room | No |
+| Semi-anonymous | Only moderators | **Yes** (user-created rooms) |
+| Anonymous | No one | No |
+
+In **semi-anonymous** rooms (the default for user-created rooms in Prosody), only moderators can see real JIDs. Since the bot is typically a participant, it cannot see real JIDs and `groupAllowFrom` won't work.
+
+**Prosody Configuration:**
+
+```lua
+Component "conference.example.com" "muc"
+  -- Option 1: Make all rooms non-anonymous by default
+  default_room_options = {
+    anonymous = false;
+  }
+  
+  -- Option 2: Use members-only rooms (automatically non-anonymous)
+  default_room_options = {
+    members_only = true;
+  }
+```
+
+**Alternative: Make the bot a moderator**
+
+If you can't change room anonymity settings, make the bot's JID a moderator in the room. Moderators can see real JIDs even in semi-anonymous rooms.
+
+**ejabberd Configuration:**
+```yaml
+# In ejabberd.yml
+modules:
+  mod_muc:
+    default_room_options:
+      anonymous: false
+```
+
+If the room is semi-anonymous or anonymous and the bot cannot see real JIDs, the plugin will allow messages from all occupants in the room (since the room itself is already configured in `groups`).
+
 ## Actions
 
 ### Reactions (XEP-0444)
