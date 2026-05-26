@@ -220,12 +220,62 @@ export async function handleInboundMessage(
       responsePrefix: "",
       deliver: async (payload: { text?: string; markdown?: string; mediaUrl?: string; mediaUrls?: string[] }) => {
         log?.info?.(`[XMPP] Deliver callback invoked with: text=${payload.text?.length ?? 0} chars, markdown=${payload.markdown?.length ?? 0} chars`);
-        await deliverReply(payload, message, config, accountId, senderIdentity, log, setStatus);
+        const replyTarget = message.isGroup ? message.roomJid! : bareJid(senderIdentity);
+        debouncedDeliver(replyTarget, payload, async (combined) => {
+          await deliverReply(combined, message, config, accountId, senderIdentity, log, setStatus);
+        });
       },
     },
   });
   
   log?.info?.(`[XMPP] Reply dispatch completed`);
+}
+
+// Debounce accumulator: collect buffered block dispatches into one message
+const _pendingDeliveries = new Map<string, {
+  texts: string[];
+  mediaUrls: string[];
+  deliverFn: (combined: { text?: string; markdown?: string; mediaUrl?: string; mediaUrls?: string[] }) => Promise<void> | void;
+  timer: ReturnType<typeof setTimeout> | null;
+}>();
+const DEBOUNCE_MS = 500;
+
+function debouncedDeliver(
+  key: string,
+  payload: { text?: string; markdown?: string; mediaUrl?: string; mediaUrls?: string[] },
+  deliverFn: (combined: { text?: string; markdown?: string; mediaUrl?: string; mediaUrls?: string[] }) => Promise<void> | void
+): void {
+  const pending = _pendingDeliveries.get(key);
+  const text = payload.markdown || payload.text || "";
+  const mediaUrl = payload.mediaUrl;
+  const mediaUrls = payload.mediaUrls;
+
+  if (pending) {
+    if (text) pending.texts.push(text);
+    if (mediaUrl) pending.mediaUrls.push(mediaUrl);
+    if (mediaUrls) pending.mediaUrls.push(...mediaUrls);
+    clearTimeout(pending.timer as ReturnType<typeof setTimeout>);
+  } else {
+    _pendingDeliveries.set(key, {
+      texts: text ? [text] : [],
+      mediaUrls: mediaUrl ? [mediaUrl] : (mediaUrls ? [...mediaUrls] : []),
+      deliverFn,
+      timer: null,
+    });
+  }
+
+  const entry = _pendingDeliveries.get(key)!;
+  entry.timer = setTimeout(async () => {
+    _pendingDeliveries.delete(key);
+    const combined = {
+      ...payload,
+      text: entry.texts.join("\n\n"),
+      markdown: entry.texts.join("\n\n"),
+      mediaUrl: entry.mediaUrls[0] || undefined,
+      mediaUrls: entry.mediaUrls.length > 0 ? entry.mediaUrls : undefined,
+    };
+    await entry.deliverFn(combined);
+  }, DEBOUNCE_MS);
 }
 
 /**
@@ -241,11 +291,10 @@ async function deliverReply(
   setStatus?: (patch: ChannelAccountStatusPatch) => void
 ): Promise<void> {
   log?.info?.(`[XMPP] deliverReply called: text=${!!payload.text} markdown=${!!payload.markdown} media=${!!(payload.mediaUrl || payload.mediaUrls?.length)}`);
-  log?.info?.(`[XMPP] deliverReply details: accountId=${accountId} sender=${senderIdentity} isGroup=${message.isGroup} roomJid=${message.roomJid}`);
-  
+
   const xmppClient = activeClients.get(accountId);
   if (!xmppClient) {
-    log?.error?.(`[XMPP] No active client for reply (accountId: ${accountId}, available: ${Array.from(activeClients.keys()).join(", ")})`);
+    log?.error?.(`[XMPP] No active client for reply (accountId: ${accountId})`);
     return;
   }
 
