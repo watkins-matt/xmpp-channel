@@ -315,7 +315,12 @@ export const xmppPlugin = {
   outbound: {
     deliveryMode: "direct" as const,
     textChunkLimit: 10000,
-    
+    // Treat the final assistant message as the cron deliverable so OpenClaw's
+    // cron classifier applies its recovered-tool-error carve-out (matches native
+    // channels). Without this, any announce-mode cron delivered over XMPP that
+    // hits a recovered non-zero tool call is misclassified status=error.
+    preferFinalAssistantVisibleText: true,
+
     resolveTarget: ({ to, ctx }: { to?: string; ctx?: Record<string, unknown> }): { ok: true; to: string } | { ok: false; error: Error } => {
       // Try explicit target first
       const trimmed = to?.trim();
