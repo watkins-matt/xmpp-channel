@@ -41,6 +41,7 @@ import {
   decryptOmemoMessage,
   shutdownOmemo,
   handleDeviceListPepEvent,
+  prefetchDeviceLists,
 } from "./omemo/index.js";
 
 // =============================================================================
@@ -239,6 +240,20 @@ export async function startXmppConnection(ctx: GatewayStartContext): Promise<voi
     if (config.omemo?.enabled) {
       try {
         await initializeOmemo(accountId, config.jid, config.omemo.deviceLabel, log);
+        // Pre-warm device-list cache for known DM peers so the first send
+        // post-restart doesn't hit a cold-cache race that returns empty
+        // encryption (and triggers the plaintext-fallback warning).
+        // The device-cache is in-memory only; without this, the first
+        // encryptOmemoMessage call after a gateway restart races against
+        // an empty cache + cold PEP fetch.
+        const peers = Array.isArray(config.allowFrom) ? config.allowFrom : [];
+        if (peers.length > 0) {
+          try {
+            await prefetchDeviceLists(accountId, peers, log);
+          } catch (err) {
+            log?.warn?.(`[${accountId}] OMEMO peer device-list prefetch failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
       } catch (err) {
         log?.error?.(`[${accountId}] OMEMO initialization failed: ${err instanceof Error ? err.message : String(err)}`);
         // Continue without OMEMO - non-fatal
