@@ -4,7 +4,7 @@ import type { XmppConfig, SendResult, Logger } from "./types.js";
 import { getActiveClient } from "./monitor.js";
 import { bareJid, resolveServer } from "./config-schema.js";
 import { getUploadService, uploadAndGetUrl, buildOobElement, downloadUrl } from "./http-upload.js";
-import { isOmemoEnabled, encryptOmemoMessage, encryptMucOmemoMessage, buildOmemoMessageStanza, isRoomOmemoCapable } from "./omemo/index.js";
+import { isOmemoEnabled, encryptOmemoMessage, encryptMucOmemoMessage, buildOmemoMessageStanza, isRoomOmemoCapable, refreshDeviceList } from "./omemo/index.js";
 import { sentMessageIds } from "./state.js";
 
 export interface ResolvedMedia {
@@ -70,9 +70,27 @@ export async function sendXmppMessage(
     // When OMEMO is enabled, always encrypt outbound messages
     if (isOmemoEnabled(accountId)) {
       try {
-        const encryptedElement = isMuc
+        let encryptedElement = isMuc
           ? await encryptMucOmemoMessage(accountId, bareJid(to), text, log)
           : await encryptOmemoMessage(accountId, bareJid(to), text, log);
+
+        // Retry once with a forced device-list refresh if first attempt
+        // returned empty. Catches stale-cache races where the cached
+        // recipient devicelist has bad/dead device IDs.
+        // Only retry on DMs — MUC encryption involves all room
+        // occupants and is too expensive to refresh in a hot path.
+        if (!encryptedElement && !isMuc) {
+          log?.warn?.(`[XMPP] OMEMO encryption returned empty for ${to}, refreshing device list and retrying once`);
+          try {
+            await refreshDeviceList(accountId, bareJid(to), log);
+            encryptedElement = await encryptOmemoMessage(accountId, bareJid(to), text, log);
+            if (encryptedElement) {
+              log?.info?.(`[XMPP] OMEMO retry succeeded for ${to} after device-list refresh`);
+            }
+          } catch (refreshErr) {
+            log?.warn?.(`[XMPP] OMEMO refresh+retry failed: ${refreshErr instanceof Error ? refreshErr.message : String(refreshErr)}`);
+          }
+        }
 
         if (encryptedElement) {
           const encryptedStanza = buildOmemoMessageStanza(to, encryptedElement, msgType);
@@ -81,8 +99,8 @@ export async function sendXmppMessage(
           return { ok: true, messageId: encryptedStanza.attrs.id };
         }
 
-        // Encryption returned null — send warning, not the actual text
-        log?.warn?.(`[XMPP] OMEMO encryption returned empty for ${to}, sending warning`);
+        // Encryption returned null even after retry — send warning, not the actual text
+        log?.warn?.(`[XMPP] OMEMO encryption returned empty for ${to} (after retry), sending warning`);
         const warnMsg = xml(
           "message",
           { to, type: msgType, id: `msg_${Date.now()}` },
