@@ -1,4 +1,5 @@
 import { xml } from "@xmpp/client";
+import * as crypto from "crypto";
 import type { XmppConfig, SendResult, Logger } from "./types.js";
 import { getActiveClient } from "./monitor.js";
 import { bareJid, resolveServer } from "./config-schema.js";
@@ -10,6 +11,36 @@ export interface ResolvedMedia {
   data: Buffer;
   contentType: string;
   filename: string;
+}
+
+
+/**
+ * XEP-0454: OMEMO Media Sharing
+ * Encrypts file data with AES-256-GCM and returns an aesgcm:// URL
+ * that OMEMO-capable clients (Conversations, Dino) can decrypt and display inline.
+ */
+function encryptMediaForOmemo(data: Buffer): { encrypted: Buffer; aesgcmFragment: string } {
+  const iv = crypto.randomBytes(12);  // 96-bit IV for GCM
+  const key = crypto.randomBytes(32); // 256-bit key
+
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
+  const tag = cipher.getAuthTag(); // 128-bit auth tag
+
+  // Encrypted payload = ciphertext + GCM auth tag (appended)
+  const payload = Buffer.concat([encrypted, tag]);
+
+  // Fragment format: IV (hex) + Key (hex), no separator
+  const aesgcmFragment = iv.toString("hex") + key.toString("hex");
+
+  return { encrypted: payload, aesgcmFragment };
+}
+
+/**
+ * Convert an https:// URL to aesgcm:// with the encryption fragment
+ */
+function toAesgcmUrl(httpsUrl: string, fragment: string): string {
+  return httpsUrl.replace(/^https:\/\//, "aesgcm://") + "#" + fragment;
 }
 
 /**
@@ -179,21 +210,45 @@ export async function sendXmppMedia(
 
         log?.debug?.(`[XMPP] Fetched ${filename} (${data.length} bytes, ${contentType})`);
 
-        // Upload via HTTP Upload
-        const uploadResult = await uploadAndGetUrl(
-          accountId,
-          uploadService,
-          filename,
-          data,
-          contentType,
-          log
-        );
+        // XEP-0454: When OMEMO is enabled, encrypt the file before upload
+        if (isOmemoEnabled(accountId)) {
+          log?.debug?.(`[XMPP] OMEMO enabled — encrypting media (XEP-0454)`);
+          const { encrypted, aesgcmFragment } = encryptMediaForOmemo(data);
 
-        if (uploadResult.ok && uploadResult.url) {
-          shareUrl = uploadResult.url;
-          log?.debug?.(`[XMPP] Uploaded to ${shareUrl}`);
+          // Upload the encrypted blob
+          const uploadResult = await uploadAndGetUrl(
+            accountId,
+            uploadService,
+            filename,
+            encrypted,
+            "application/octet-stream", // Encrypted data has no meaningful MIME type
+            log
+          );
+
+          if (uploadResult.ok && uploadResult.url) {
+            shareUrl = toAesgcmUrl(uploadResult.url, aesgcmFragment);
+            log?.info?.(`[XMPP] XEP-0454 encrypted media uploaded, aesgcm URL ready`);
+          } else {
+            log?.error?.(`[XMPP] HTTP Upload failed for encrypted media: ${uploadResult.error}`);
+            return { ok: false, error: `HTTP Upload failed: ${uploadResult.error}` };
+          }
         } else {
-          log?.warn?.(`[XMPP] HTTP Upload failed: ${uploadResult.error}, falling back to URL`);
+          // No OMEMO — upload raw file
+          const uploadResult = await uploadAndGetUrl(
+            accountId,
+            uploadService,
+            filename,
+            data,
+            contentType,
+            log
+          );
+
+          if (uploadResult.ok && uploadResult.url) {
+            shareUrl = uploadResult.url;
+            log?.debug?.(`[XMPP] Uploaded to ${shareUrl}`);
+          } else {
+            log?.warn?.(`[XMPP] HTTP Upload failed: ${uploadResult.error}, falling back to URL`);
+          }
         }
       } catch (err) {
         log?.error?.(`[XMPP] Failed to fetch/upload media: ${err instanceof Error ? err.message : String(err)}`);
