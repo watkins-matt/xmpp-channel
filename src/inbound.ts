@@ -152,10 +152,18 @@ export async function handleInboundMessage(
   // Build the message context using finalizeInboundContext (same pattern as other channels)
   // Note: Both MessageSid AND messageId are included for consistency with reaction tool parameter
   const msgId = message.stanzaId || message.id || `xmpp-${Date.now()}`;
+  // XEP-0066: if peer attached an OOB URL (file upload, image, etc.), surface
+  // it to the agent. Many clients (Conversations, Dino) include the URL in
+  // the body too, so only append if not already there.
+  let displayBody = message.body;
+  if (message.oobUrl && !displayBody.includes(message.oobUrl)) {
+    const descPart = message.oobDesc ? ` (${message.oobDesc})` : "";
+    displayBody = `${displayBody ? displayBody + "\n" : ""}[Attachment: ${message.oobUrl}${descPart}]`;
+  }
   const ctx = rt.channel.reply.finalizeInboundContext({
-    Body: message.body,
+    Body: displayBody,
     RawBody: message.body,
-    CommandBody: message.body,
+    CommandBody: displayBody,
     From: `xmpp:${senderIdentity}`,
     To: `xmpp:${message.to}`,
     SessionKey: route.sessionKey,
