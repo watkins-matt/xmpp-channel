@@ -618,6 +618,21 @@ function setupMessageHandler(
       }
     }
 
+    // XEP-0066: Out-of-Band Data — parse <x xmlns="jabber:x:oob"> attachments.
+    // Peers (Conversations, Dino, Gajim) send file uploads as a body containing
+    // the URL plus an OOB element. Surface the URL+description to inbound
+    // handling so the agent knows there's an attachment.
+    let oobUrl: string | undefined;
+    let oobDesc: string | undefined;
+    const oobElement = stanza.getChild("x", "jabber:x:oob");
+    if (oobElement) {
+      oobUrl = oobElement.getChildText("url") || undefined;
+      oobDesc = oobElement.getChildText("desc") || undefined;
+      if (oobUrl) {
+        log?.debug?.(`[${accountId}] XEP-0066 inbound OOB attachment: ${oobUrl}${oobDesc ? ` (${oobDesc})` : ""}`);
+      }
+    }
+
     const message: XmppInboundMessage = {
       id,
       from: senderJid,
@@ -647,6 +662,8 @@ function setupMessageHandler(
         }
         return stanza.attrs.id || undefined;
       })(),
+      oobUrl,
+      oobDesc,
       // Raw stanza 'id' attribute (some clients like Gajim use this directly)
       rawStanzaId: stanza.attrs.id,
       wasEncrypted,

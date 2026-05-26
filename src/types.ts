@@ -150,6 +150,10 @@ export interface XmppInboundMessage {
   wasEncrypted?: boolean;
   /** Sender JID for OMEMO encryption (bare JID, needed for MUC) */
   senderJidForOmemo?: string;
+  /** XEP-0066 Out-of-Band Data: attachment URL the peer included (file upload, image) */
+  oobUrl?: string;
+  /** XEP-0066 Out-of-Band Data: optional human-readable description of the attachment */
+  oobDesc?: string;
 }
 
 /**
