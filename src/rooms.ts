@@ -225,7 +225,12 @@ export async function handleMucInvite(
       pendingMucJoins.set(pendingKey, { resolve, reject, timeout });
     });
     
-    await xmpp.send(joinPresence);
+    try {
+      await xmpp.send(joinPresence);
+    } catch (err) {
+      joinConfirmation.catch(() => {});
+      throw err;
+    }
     log?.debug?.(`[${accountId}] Sent join presence to ${roomJid}, waiting for self-presence...`);
     
     // Wait for self-presence confirmation (or timeout)
