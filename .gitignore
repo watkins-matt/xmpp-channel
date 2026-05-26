@@ -34,3 +34,11 @@ coverage/
 *.tmp
 *.temp
 .cache/
+
+# Runtime state the plugin writes into its own dir — NEVER commit.
+# xmpp-omemo.json holds OMEMO private keys (identityKeyPair, preKeys, sessions).
+xmpp-omemo.json
+xmpp-rooms.json
+mam-state.json
+*-state.json
+config.json
