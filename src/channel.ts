@@ -85,7 +85,7 @@ export const xmppPlugin = {
     chatTypes: ["direct", "group"] as const,
     reactions: true, // XEP-0444
     threads: false,
-    media: false, // Phase 3: XEP-0363
+    media: true, // XEP-0363 HTTP File Upload
     polls: false,
   },
   
