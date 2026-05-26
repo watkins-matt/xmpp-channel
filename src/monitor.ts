@@ -41,6 +41,7 @@ import {
   decryptOmemoMessage,
   shutdownOmemo,
   handleDeviceListPepEvent,
+  prefetchDeviceLists,
 } from "./omemo/index.js";
 
 // =============================================================================
@@ -239,6 +240,20 @@ export async function startXmppConnection(ctx: GatewayStartContext): Promise<voi
     if (config.omemo?.enabled) {
       try {
         await initializeOmemo(accountId, config.jid, config.omemo.deviceLabel, log);
+        // Pre-warm device-list cache for known DM peers so the first send
+        // post-restart doesn't hit a cold-cache race that returns empty
+        // encryption (and triggers the plaintext-fallback warning).
+        // The device-cache is in-memory only; without this, the first
+        // encryptOmemoMessage call after a gateway restart races against
+        // an empty cache + cold PEP fetch.
+        const peers = Array.isArray(config.allowFrom) ? config.allowFrom : [];
+        if (peers.length > 0) {
+          try {
+            await prefetchDeviceLists(accountId, peers, log);
+          } catch (err) {
+            log?.warn?.(`[${accountId}] OMEMO peer device-list prefetch failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
       } catch (err) {
         log?.error?.(`[${accountId}] OMEMO initialization failed: ${err instanceof Error ? err.message : String(err)}`);
         // Continue without OMEMO - non-fatal
@@ -645,6 +660,8 @@ function setupMessageHandler(
       senderNick,
       replyToId,
       replyToBody,
+      oobUrl,
+      oobDesc,
       // XEP-0359: Capture server-assigned stanza-id (preferred for reactions/references)
       // For MUC: MUST use stanza-id with 'by' attribute matching room JID (per XEP-0444)
       // For DMs: Use stanza-id or fall back to stanza's 'id' attribute
@@ -662,8 +679,6 @@ function setupMessageHandler(
         }
         return stanza.attrs.id || undefined;
       })(),
-      oobUrl,
-      oobDesc,
       // Raw stanza 'id' attribute (some clients like Gajim use this directly)
       rawStanzaId: stanza.attrs.id,
       wasEncrypted,
