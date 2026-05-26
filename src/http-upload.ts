@@ -75,7 +75,12 @@ export async function discoverUploadService(
     );
 
     const responsePromise = waitForIq(client, id);
-    await client.send(itemsIq);
+    try {
+      await client.send(itemsIq);
+    } catch (err) {
+      responsePromise.catch(() => {});
+      throw err;
+    }
     const response = await responsePromise;
 
     if (response.attrs.type !== "result") {
@@ -98,7 +103,12 @@ export async function discoverUploadService(
 
       try {
         const infoPromise = waitForIq(client, infoId, 10000);
-        await client.send(infoIq);
+        try {
+          await client.send(infoIq);
+        } catch (err) {
+          infoPromise.catch(() => {});
+          throw err;
+        }
         const infoResponse = await infoPromise;
 
         if (infoResponse.attrs.type !== "result") continue;
@@ -130,7 +140,12 @@ export async function discoverUploadService(
 
       try {
         const infoPromise = waitForIq(client, infoId, 5000);
-        await client.send(infoIq);
+        try {
+          await client.send(infoIq);
+        } catch (err) {
+          infoPromise.catch(() => {});
+          throw err;
+        }
         const infoResponse = await infoPromise;
 
         if (infoResponse.attrs.type !== "result") continue;
@@ -192,7 +207,12 @@ export async function requestUploadSlot(
     log?.debug?.(`[HTTP Upload] Requesting slot for ${filename} (${size} bytes)`);
 
     const responsePromise = waitForIq(client, id);
-    await client.send(iq);
+    try {
+      await client.send(iq);
+    } catch (err) {
+      responsePromise.catch(() => {});
+      throw err;
+    }
     const response = await responsePromise;
 
     if (response.attrs.type === "result") {

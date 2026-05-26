@@ -76,7 +76,12 @@ async function sendIq(
   log?.debug?.(`[PEP] Sending IQ: ${iq.toString()}`);
 
   const responsePromise = waitForIq(client, requestId);
-  await client.send(iq);
+  try {
+    await client.send(iq);
+  } catch (err) {
+    responsePromise.catch(() => {});
+    throw err;
+  }
   const response = await responsePromise;
 
   log?.debug?.(`[PEP] IQ response: type=${response.attrs.type}`);

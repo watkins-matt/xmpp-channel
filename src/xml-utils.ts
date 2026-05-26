@@ -78,7 +78,7 @@ export function waitForIq(
   requestId: string,
   timeoutMs: number = 30000
 ): Promise<Element> {
-  return new Promise((resolve, reject) => {
+  const promise = new Promise<Element>((resolve, reject) => {
     const timeout = setTimeout(() => {
       cleanup();
       reject(new Error("IQ request timed out"));
@@ -98,6 +98,16 @@ export function waitForIq(
 
     client.on("stanza", handler);
   });
+
+  // Always observe the rejection so a missed `await` (e.g. when the caller's
+  // `client.send()` throws before the response promise is awaited) cannot
+  // escape as an UnhandledRejection. The bundled curve25519 wasm runtime
+  // registers `process.on('unhandledRejection', abort)` and will SIGABRT the
+  // gateway otherwise. The .catch handler does NOT consume the rejection
+  // for awaiters that DO reach `await`: the original promise is still
+  // rejected and propagates the error normally.
+  promise.catch(() => {});
+  return promise;
 }
 
 // =============================================================================
