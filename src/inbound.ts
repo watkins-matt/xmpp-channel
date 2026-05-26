@@ -218,8 +218,12 @@ export async function handleInboundMessage(
     },
   });
 
+  // Send typing indicator immediately when agent starts processing
+  const replyTo = message.isGroup ? message.roomJid! : bareJid(senderBare);
+  await sendChatState(accountId, replyTo, "composing", log);
+
   log?.info?.(`[XMPP] Dispatching reply for session ${route.sessionKey}`);
-  
+
   // Dispatch reply
   await rt.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
     ctx,
