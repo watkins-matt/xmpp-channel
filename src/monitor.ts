@@ -263,22 +263,33 @@ export async function startXmppConnection(ctx: GatewayStartContext): Promise<voi
     // Debug: log config for troubleshooting
     log?.debug?.(`[${accountId}] Config debug: allowFrom=${JSON.stringify(config.allowFrom)} groups=${JSON.stringify(config.groups)} dmPolicy=${config.dmPolicy}`);
 
-    // Join group chat rooms from config
-    if (config.groups && config.groups.length > 0) {
-      log?.info?.(`[${accountId}] Joining ${config.groups.length} group rooms...`);
-      for (const room of config.groups) {
-        await joinMuc(xmpp, room, nickname, log, accountId, true);
+    // Join group chat rooms from config + persisted rooms (from invites).
+    // This whole block runs inside the async `online` event handler, so any
+    // throw here (e.g. the stream dropping mid-join and rejecting a send with
+    // a StreamError) escapes as an unhandled rejection. Keep it contained: a
+    // failed join is non-fatal — the reconnect path will retry — and must
+    // never bubble out of the handler.
+    try {
+      if (config.groups && config.groups.length > 0) {
+        log?.info?.(`[${accountId}] Joining ${config.groups.length} group rooms...`);
+        for (const room of config.groups) {
+          await joinMuc(xmpp, room, nickname, log, accountId, true);
+        }
+      } else {
+        log?.debug?.(`[${accountId}] No group rooms configured`);
       }
-    } else {
-      log?.debug?.(`[${accountId}] No group rooms configured`);
-    }
-    
-    // Join persisted rooms (from previous invites)
-    const persistedRooms = getPersistedRooms(accountId, log);
-    for (const roomJid of persistedRooms) {
-      if (config.groups?.includes(roomJid)) continue;
-      log?.info?.(`[${accountId}] Rejoining persisted room: ${roomJid}`);
-      await joinMuc(xmpp, roomJid, nickname, log, accountId, true);
+
+      // Join persisted rooms (from previous invites)
+      const persistedRooms = getPersistedRooms(accountId, log);
+      for (const roomJid of persistedRooms) {
+        if (config.groups?.includes(roomJid)) continue;
+        log?.info?.(`[${accountId}] Rejoining persisted room: ${roomJid}`);
+        await joinMuc(xmpp, roomJid, nickname, log, accountId, true);
+      }
+    } catch (err) {
+      log?.warn?.(
+        `[${accountId}] Room (re)join interrupted (non-fatal, will retry on reconnect): ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   });
 

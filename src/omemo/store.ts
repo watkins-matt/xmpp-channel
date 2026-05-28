@@ -37,16 +37,62 @@ function sessionKey(jid: string, deviceId: number): string {
 let signalLib: SignalLib = null;
 let signalLoaded = false;
 let signalLoadError: Error | null = null;
+let rejectionGuardInstalled = false;
+
+/**
+ * Neutralise the curve25519 emscripten runtime's process-killing rejection handler.
+ *
+ * The bundled `@privacyresearch/curve25519-typescript` wasm runtime registers
+ * `process.on('unhandledRejection', abort)` at module-load time, where `abort`
+ * SIGABRTs the entire Node process. This means ANY unhandled rejection anywhere
+ * in the gateway — e.g. an XMPP `StreamError: invalid-namespace` that rejects a
+ * promise the @xmpp client never gives us a chance to await — takes down the
+ * whole gateway, not just the XMPP plugin, putting it into a crash-restart loop.
+ *
+ * We diff the listener set across the import so we remove ONLY the listener the
+ * crypto runtime just added (preserving any the gateway core registered), and
+ * install a single logging guard so Node keeps surviving unhandled rejections
+ * instead of falling back to its default fatal "throw" mode.
+ */
+function neutraliseCurveAbortHandler(
+  before: Set<NodeJS.UnhandledRejectionListener>,
+  log?: Logger
+): void {
+  let removed = 0;
+  for (const listener of process.listeners("unhandledRejection")) {
+    if (!before.has(listener)) {
+      process.off("unhandledRejection", listener);
+      removed++;
+    }
+  }
+  if (removed === 0) return;
+
+  log?.warn?.(
+    `[omemo] removed ${removed} curve25519 wasm unhandledRejection->process.abort() handler(s) to keep the gateway alive on stray rejections`
+  );
+
+  if (!rejectionGuardInstalled) {
+    process.on("unhandledRejection", (reason) => {
+      const detail =
+        reason instanceof Error ? reason.stack || reason.message : String(reason);
+      log?.error?.(
+        `[omemo] swallowed unhandled rejection that would have SIGABRT'd the gateway via curve25519: ${detail}`
+      );
+    });
+    rejectionGuardInstalled = true;
+  }
+}
 
 /**
  * Load the Signal protocol library dynamically
  */
-async function loadSignalLib(): Promise<SignalLib> {
+async function loadSignalLib(log?: Logger): Promise<SignalLib> {
   if (signalLoaded) {
     if (signalLoadError) throw signalLoadError;
     return signalLib;
   }
-  
+
+  const rejectionListenersBefore = new Set(process.listeners("unhandledRejection"));
   try {
     signalLib = await import("@privacyresearch/libsignal-protocol-typescript");
     signalLoaded = true;
@@ -55,6 +101,10 @@ async function loadSignalLib(): Promise<SignalLib> {
     signalLoadError = err instanceof Error ? err : new Error(String(err));
     signalLoaded = true;
     throw signalLoadError;
+  } finally {
+    // Run regardless of success: the wasm runtime registers its abort handler
+    // as a side effect of being imported, even when a later step throws.
+    neutraliseCurveAbortHandler(rejectionListenersBefore, log);
   }
 }
 
@@ -121,7 +171,7 @@ export class OmemoStore {
    */
   async initialize(existingData?: OmemoStoreData): Promise<void> {
     // Load Signal library
-    this.signal = await loadSignalLib();
+    this.signal = await loadSignalLib(this.log);
     
     if (existingData) {
       await this.loadFromData(existingData);
