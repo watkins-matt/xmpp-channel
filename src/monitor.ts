@@ -43,6 +43,7 @@ import {
   handleDeviceListPepEvent,
   prefetchDeviceLists,
 } from "./omemo/index.js";
+import { bootstrapKnownContacts } from "./bootstrap.js";
 
 // =============================================================================
 // RE-EXPORTS for backward compatibility
@@ -252,6 +253,21 @@ export async function startXmppConnection(ctx: GatewayStartContext): Promise<voi
             await prefetchDeviceLists(accountId, peers, log);
           } catch (err) {
             log?.warn?.(`[${accountId}] OMEMO peer device-list prefetch failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
+          }
+
+          // OMEMO session-asymmetry recovery: send a short OMEMO-encrypted
+          // no-op to each known human contact so their client ratchets
+          // forward to match our (potentially lagging) post-restart session
+          // state. Without this, the peer-side ratchet stays ahead of ours
+          // and outbound from them silently fails to decrypt on our side
+          // until their client times out and re-fetches our bundle —
+          // anywhere from seconds to many minutes. The bootstrap closes
+          // that window to ~1 second. See src/bootstrap.ts for rationale,
+          // rate-limiting, and agent-loop protection.
+          try {
+            await bootstrapKnownContacts(accountId, peers, log);
+          } catch (err) {
+            log?.warn?.(`[${accountId}] OMEMO post-connect bootstrap failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
           }
         }
       } catch (err) {
