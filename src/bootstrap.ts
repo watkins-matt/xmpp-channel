@@ -28,7 +28,7 @@
  */
 import { xml } from "@xmpp/client";
 import { bareJid } from "./config-schema.js";
-import { encryptOmemoMessage, NS_OMEMO } from "./omemo/index.js";
+import { encryptOmemoMessage, NS_OMEMO, refreshDeviceList } from "./omemo/index.js";
 import { activeClients } from "./state.js";
 import type { Logger } from "./types.js";
 
@@ -74,6 +74,14 @@ function isAgentJid(jid: string): boolean {
  * Prosody doesn't archive or replicate it. Returns silently on encryption
  * failure — bootstrap is best-effort; if it fails the regular fallback
  * recovery (peer-side timeout + bundle re-fetch) still applies.
+ *
+ * If encryption returns empty on the first try, forces a fresh device-list
+ * fetch via PEP and retries once. This catches a cold-cache race observed
+ * post-restart: prefetchDeviceLists completes before the peer's PEP
+ * subscription has had a chance to deliver, leaving an empty cache for
+ * the peer. The retry-with-refresh resolves in <1 sec when the cause is
+ * a stale cache rather than a genuinely-empty peer devicelist. Mirrors
+ * the same pattern used by the outbound send path (outbound.ts:82-93).
  */
 async function sendOmemoBootstrap(
   accountId: string,
@@ -88,9 +96,27 @@ async function sendOmemoBootstrap(
 
   const target = bareJid(contactJid);
 
-  const encryptedElement = await encryptOmemoMessage(accountId, target, "", log);
+  let encryptedElement = await encryptOmemoMessage(accountId, target, "", log);
+
   if (!encryptedElement) {
-    log?.warn?.(`[${accountId}] bootstrap encryption returned empty for ${target} (no recovery this round)`);
+    log?.debug?.(`[${accountId}] bootstrap first attempt empty for ${target}; refreshing devicelist via PEP`);
+    try {
+      await refreshDeviceList(accountId, target, log);
+      encryptedElement = await encryptOmemoMessage(accountId, target, "", log);
+      if (encryptedElement) {
+        log?.info?.(`[${accountId}] bootstrap retry succeeded for ${target} after devicelist refresh`);
+      }
+    } catch (err) {
+      log?.warn?.(
+        `[${accountId}] bootstrap devicelist refresh failed for ${target}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
+  if (!encryptedElement) {
+    log?.warn?.(`[${accountId}] bootstrap encryption returned empty for ${target} even after refresh (no recovery this round)`);
     return;
   }
 
