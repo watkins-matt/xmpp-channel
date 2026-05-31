@@ -15,6 +15,7 @@ import { activeClients, recordInboundMessageId } from "./state.js";
 import { sendChatState, sendChatMarker } from "./chat-state.js";
 import { isOmemoEnabled, encryptOmemoMessage, encryptMucOmemoMessage, isRoomOmemoCapable, buildOmemoMessageStanza } from "./omemo/index.js";
 import { getOccupantRealJid } from "./omemo/muc-occupants.js";
+import { buildReplyElement, buildReplyFallbackPrefix, buildReplyFallbackMarker } from "./replies.js";
 
 /**
  * Generate a proper XMPP message ID
@@ -389,6 +390,15 @@ async function deliverReply(
   
   log?.info?.(`[XMPP] Reply to ${replyTo}: ${textToSend.slice(0, 50)}...`);
 
+  // XEP-0461 (Message Replies) — when the trigger message has a usable ID,
+  // thread our response under it. Built once here and reused across the
+  // OMEMO and plaintext send paths below. `senderIdentity` is already the
+  // correct JID for the spec: bare for DMs, full occupant JID for MUCs.
+  const originalMsgId = message.id;
+  const replyPointerEl = originalMsgId
+    ? buildReplyElement(originalMsgId, senderIdentity)
+    : undefined;
+
   // Check if we should encrypt the reply
   // Encrypt if: OMEMO enabled AND (DM OR OMEMO-capable MUC)
   // When OMEMO is enabled, ALL outbound messages must be encrypted.
@@ -404,8 +414,14 @@ async function deliverReply(
     try {
       const encryptedElement = await encryptOmemoMessage(accountId, recipientJid, textToSend, log);
       if (encryptedElement) {
-        const encryptedStanza = buildOmemoMessageStanza(replyTo, encryptedElement, "chat");
-        log?.debug?.(`[XMPP] Sending OMEMO encrypted reply to ${replyTo}`);
+        // XEP-0461 reply pointer rides as a plaintext sibling of <encrypted>;
+        // reply-aware clients use it before decryption to locate the original
+        // in local history. Quoted-text fallback is omitted intentionally —
+        // the OMEMO plaintext body is the canned "encrypted message" notice,
+        // not real content, so a body-range XEP-0428 marker doesn't apply.
+        const extraChildren = replyPointerEl ? [replyPointerEl] : [];
+        const encryptedStanza = buildOmemoMessageStanza(replyTo, encryptedElement, "chat", extraChildren);
+        log?.debug?.(`[XMPP] Sending OMEMO encrypted reply to ${replyTo}${replyPointerEl ? ` (threaded to ${originalMsgId})` : ""}`);
         await xmppClient.send(encryptedStanza);
         log?.info?.(`[XMPP] Successfully sent OMEMO encrypted reply to ${replyTo}`);
         
@@ -444,8 +460,10 @@ async function deliverReply(
     try {
       const encryptedElement = await encryptMucOmemoMessage(accountId, roomJid, textToSend, log);
       if (encryptedElement) {
-        const encryptedStanza = buildOmemoMessageStanza(replyTo, encryptedElement, "groupchat");
-        log?.debug?.(`[XMPP] Sending MUC OMEMO encrypted reply to ${replyTo}`);
+        // XEP-0461 reply pointer as plaintext sibling (see DM path above).
+        const extraChildren = replyPointerEl ? [replyPointerEl] : [];
+        const encryptedStanza = buildOmemoMessageStanza(replyTo, encryptedElement, "groupchat", extraChildren);
+        log?.debug?.(`[XMPP] Sending MUC OMEMO encrypted reply to ${replyTo}${replyPointerEl ? ` (threaded to ${originalMsgId})` : ""}`);
         await xmppClient.send(encryptedStanza);
         log?.info?.(`[XMPP] Successfully sent MUC OMEMO encrypted reply to ${replyTo}`);
         
@@ -478,15 +496,25 @@ async function deliverReply(
     }
   }
 
-  // Build reply message with XEP-0461 (Message Replies) for proper threading
+  // Plaintext send path (OMEMO disabled, or recipient not OMEMO-capable).
+  //
+  // Build a XEP-0461 reply with a XEP-0428 fallback so reply-aware clients
+  // render this as a quote-thread (and strip the `> quoted` prefix from the
+  // body), while older clients still see the quoted context inline.
   const messageId = generateMessageId();
-  const originalMsgId = message.id;
-  // XEP-0461: for groups, use full occupant JID (room/nick); for DMs, use bare JID
-  const originalSender = senderIdentity;
-  
-  // XEP-0461: reply element references the original message
-  const replyChildren: ReturnType<typeof xml>[] = [xml("body", {}, textToSend)];
-  
+  const replyChildren: ReturnType<typeof xml>[] = [];
+
+  let bodyText = textToSend;
+  if (replyPointerEl) {
+    const { prefix, length: prefixLen } = buildReplyFallbackPrefix(message.body || "");
+    if (prefixLen > 0) {
+      bodyText = prefix + textToSend;
+      replyChildren.push(buildReplyFallbackMarker(0, prefixLen));
+    }
+    replyChildren.push(replyPointerEl);
+  }
+  replyChildren.push(xml("body", {}, bodyText));
+
   const reply = xml(
     "message",
     { to: replyTo, type: msgType, id: messageId },
