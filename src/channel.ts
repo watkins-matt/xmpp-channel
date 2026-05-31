@@ -1,3 +1,9 @@
+// MUST be the first import: installs an unhandledRejection guard at module
+// load time so it's in place BEFORE any XMPP connection attempt. The
+// curve25519 guard in omemo/store.ts only installs once OMEMO loads, which
+// is too late for the connection-setup window (see process-guards.ts).
+import "./process-guards.js";
+
 import type { OpenClawConfig, GroupToolPolicyConfig } from "openclaw/plugin-sdk";
 import { DEFAULT_ACCOUNT_ID, formatPairingApproveHint, resolveToolsBySender } from "openclaw/plugin-sdk";
 import type {
