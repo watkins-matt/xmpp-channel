@@ -466,46 +466,65 @@ export async function handleXmppAction(params: {
 
     const reactionMsgId = `reaction_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    // XEP-0444 + XEP-0420: Send reactions BOTH encrypted AND as plaintext sibling
-    // 
-    // Native XMPP clients (Conversations, Gajim) send reactions as:
-    // 1. Plaintext <reactions> sibling - for display by the receiving client
-    // 2. OMEMO-encrypted payload (can be empty) - to keep session active
+    // XEP-0444 + XEP-0420 SCE: For OMEMO chats, wrap <reactions> INSIDE an
+    // SCE envelope (`<envelope xmlns="urn:xmpp:sce:1"><content>…</content>…</envelope>`)
+    // and put the envelope as the OMEMO payload. Modern Conversations ignores
+    // plaintext `<reactions>` siblings on encrypted messages (security
+    // hardening — don't trust plaintext metadata on E2E chats) and looks for
+    // the SCE-wrapped reaction inside the decrypted OMEMO payload.
     //
-    // The plaintext sibling is what clients display as emoji reactions.
-    // Without it, clients show the decrypted XML payload as plain text!
+    // We also keep the plaintext sibling as a belt-and-braces fallback for
+    // older clients (pre-SCE Conversations/Gajim, Profanity, etc.) that
+    // still consume it. Modern clients see both and dedupe by stanza id.
+    // This matches the parsing path we already have on the inbound side
+    // (monitor.ts:498-560 parses SCE-wrapped incoming reactions), so we're
+    // now symmetric — what we receive, we also send.
     //
-    // Message structure (correct format):
+    // Message structure:
     // <message>
     //   <encrypted xmlns="eu.siacs.conversations.axolotl">
-    //     <header sid="...">
-    //       <key rid="...">...</key>
-    //       <iv>...</iv>
-    //     </header>
-    //     <payload>BASE64</payload>  <- Can be empty or contain SCE wrapper
+    //     <header sid="..."><key rid="...">…</key><iv>…</iv></header>
+    //     <payload>BASE64(SCE envelope containing <reactions>)</payload>
     //   </encrypted>
-    //   <reactions id="..." xmlns="urn:xmpp:reactions:0">  <- Plaintext sibling for display!
+    //   <reactions id="..." xmlns="urn:xmpp:reactions:0">  ← legacy plaintext sibling
     //     <reaction>👍</reaction>
     //   </reactions>
-    //   <encryption xmlns="urn:xmpp:eme:0" namespace="eu.siacs.conversations.axolotl" name="OMEMO"/>
+    //   <encryption xmlns="urn:xmpp:eme:0" namespace="…" name="OMEMO"/>
     //   <store xmlns="urn:xmpp:hints"/>
     // </message>
     if (isOmemoEnabled(account.accountId)) {
-      // Build the OMEMO encrypted payload (keep session active, can be empty)
-      const payloadContent = ""; // Empty - the plaintext sibling handles the reaction display
+      // Build SCE envelope: <envelope><content>{reactions}</content></envelope>.
+      // XEP-0420 also recommends a small `<rpad>` for length-hiding; some random
+      // characters between 0 and ~200 bytes. Keep it tiny since reactions are
+      // already short and the encrypted size leak is minimal here.
+      const rpadLen = 16 + Math.floor(Math.random() * 32);
+      const rpadChars = Array.from({ length: rpadLen }, () =>
+        String.fromCharCode(0x41 + Math.floor(Math.random() * 26)),
+      ).join("");
+      const sceEnvelope = xml(
+        "envelope",
+        { xmlns: "urn:xmpp:sce:1" },
+        xml("content", {}, reactionsEl),
+        xml("rpad", {}, rpadChars),
+      );
+      // Serialize to string for the OMEMO encryption call (the encryptor
+      // treats its payload arg as opaque bytes; we pass the SCE envelope XML).
+      const sceEnvelopeXml = sceEnvelope.toString();
 
       const encryptedElement = isMuc
-        ? await encryptMucOmemoMessage(account.accountId, bareJid(targetJid), payloadContent, undefined)
-        : await encryptOmemoMessage(account.accountId, bareJid(targetJid), payloadContent, undefined);
+        ? await encryptMucOmemoMessage(account.accountId, bareJid(targetJid), sceEnvelopeXml, undefined)
+        : await encryptOmemoMessage(account.accountId, bareJid(targetJid), sceEnvelopeXml, undefined);
 
       if (encryptedElement) {
-        // Send BOTH encrypted payload (keeps session active) AND plaintext reactions (for display)
+        // Send encrypted SCE-wrapped reaction PLUS plaintext sibling for
+        // legacy client compatibility (no double-rendering risk — clients
+        // dedupe by stanza id).
         const resolvedTarget = resolveMucTarget(targetJid, isMuc, config);
         const message = xml(
           "message",
           { to: resolvedTarget, type: msgType, id: reactionMsgId },
           encryptedElement,
-          reactionsEl,  // Plaintext sibling - THIS is what clients display as emoji!
+          reactionsEl,  // Legacy plaintext sibling for pre-SCE clients
           xml("encryption", {
             xmlns: "urn:xmpp:eme:0",
             namespace: NS_OMEMO,
@@ -514,7 +533,7 @@ export async function handleXmppAction(params: {
           xml("store", { xmlns: "urn:xmpp:hints" })
         );
 
-        console.log(`[XMPP:actions] Sending OMEMO + plaintext reaction sibling: to=${resolvedTarget} type=${msgType} refId=${serverMessageId} emoji=${emoji || "👍"}`);
+        console.log(`[XMPP:actions] Sending SCE-wrapped OMEMO reaction + plaintext sibling: to=${resolvedTarget} type=${msgType} refId=${serverMessageId} emoji=${emoji || "👍"}`);
         await client.send(message);
       } else {
         // Encryption failed — fall back to plaintext reaction only
