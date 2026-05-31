@@ -1055,15 +1055,21 @@ async function encryptPayload(
 
 /**
  * Build an OMEMO encrypted message stanza.
- * 
+ *
  * @param to - Recipient JID
  * @param encryptedElement - The <encrypted> element from encryptOmemoMessage
  * @param msgType - Message type ("chat" or "groupchat")
+ * @param extraChildren - Additional plaintext sibling elements to attach
+ *   (e.g. XEP-0461 `<reply>` pointers). Must be plaintext elements that the
+ *   receiving client needs to read at parse time, BEFORE the OMEMO payload
+ *   is decrypted — reply pointers, reactions, threading metadata. Encrypted
+ *   content belongs inside `encryptedElement` (or an SCE envelope), not here.
  */
 export function buildOmemoMessageStanza(
   to: string,
   encryptedElement: Element,
-  msgType: "chat" | "groupchat" = "chat"
+  msgType: "chat" | "groupchat" = "chat",
+  extraChildren: Element[] = []
 ): Element {
   const messageId = `omemo_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -1080,6 +1086,7 @@ export function buildOmemoMessageStanza(
     // Store hint for MAM
     xml("store", { xmlns: "urn:xmpp:hints" }),
     // Fallback body for non-OMEMO clients
-    xml("body", {}, "I sent you an OMEMO encrypted message but your client doesn't seem to support that.")
+    xml("body", {}, "I sent you an OMEMO encrypted message but your client doesn't seem to support that."),
+    ...extraChildren
   );
 }
