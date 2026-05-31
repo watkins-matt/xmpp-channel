@@ -173,13 +173,29 @@ export async function handleInboundMessage(
     CommandAuthorized: commandAuthorized,
   });
 
-  // Record the inbound message ID for potential reaction fallback
-  // This helps when AI passes wrong messageId - we can use the most recent message as fallback
-  // For MUC: MUST use stanzaId (XEP-0359 stanza-id) per XEP-0444 - the stanza's 'id' attr MUST NOT be used
-  // For DMs: Prefer rawStanzaId (stanza's 'id' attr used by Gajim) > stanzaId (XEP-0359) > id
+  // Record the inbound message ID for potential reaction fallback.
+  // This helps when AI passes wrong messageId — we can use the most recent
+  // message as fallback.
+  //
+  // For MUC: MUST use stanzaId (XEP-0359) per XEP-0444 — the stanza's `id`
+  // attr MUST NOT be used.
+  //
+  // For DMs: also prefer stanzaId. Reaction-aware clients (Conversations,
+  // Dino, modern Gajim) index inbound messages by the XEP-0359 stanza-id
+  // their server attaches on receipt, NOT by the sender's original `id`
+  // attribute (rawStanzaId). Sending `<reactions id="rawStanzaId">` against
+  // a stanza-id-indexed client looks like a reaction targeting nothing, and
+  // the reaction is silently dropped on the receiving side. Observed
+  // 2026-05-31: agent calls react, the gateway reports success, but
+  // Conversations renders nothing because the id we picked from
+  // rawStanzaId didn't match what Conversations had indexed.
+  //
+  // Falls back to rawStanzaId then `id` only when the server didn't attach
+  // a stanza-id (rare — most modern servers including Prosody do this by
+  // default) so we still have *something* to use as a stable reference.
   const inboundMessageId = message.isGroup
     ? (message.stanzaId || message.id)  // MUC: stanza-id is required for reactions
-    : (message.rawStanzaId || message.stanzaId || message.id);  // DM: any ID works
+    : (message.stanzaId || message.rawStanzaId || message.id);  // DM: prefer stanza-id for reaction-aware clients
   if (inboundMessageId) {
     // For DMs, record with senderBare
     if (!message.isGroup && senderBare) {
