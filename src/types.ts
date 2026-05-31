@@ -214,9 +214,15 @@ export interface SendResult {
 }
 
 /**
- * Channel message action names
+ * Channel message action names supported by this plugin. Names align with
+ * the SDK's canonical CHANNEL_MESSAGE_ACTION_NAMES vocabulary so OpenClaw's
+ * tool builder accepts them (`edit` and `unsend` are the SDK's standard
+ * names for XEP-0308 LMC and XEP-0424 Retraction respectively, used by
+ * iMessage and other plugins). We keep a narrow local union rather than
+ * re-exporting the SDK type because the SDK's d.ts re-export uses a
+ * suffixed internal name that doesn't surface through the package boundary.
  */
-export type ChannelMessageActionName = "react" | "poll" | "send";
+export type ChannelMessageActionName = "react" | "poll" | "send" | "edit" | "unsend";
 
 /**
  * Channel directory entry
