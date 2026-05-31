@@ -44,25 +44,146 @@ function createActionGate(
 }
 
 /**
- * List available actions for XMPP
+ * Collect every `actions` block in the XMPP channel config, regardless of
+ * whether the deployment uses the single-account top-level shape
+ * (`channels.xmpp.actions.*`) or the multi-account shape
+ * (`channels.xmpp.accounts.<id>.actions.*`). Returns an empty array if no
+ * actions block is configured anywhere.
+ *
+ * An action is considered enabled if ANY configured location has it set true.
+ * This matches user expectation: if you've enabled reactions on any account,
+ * the agent's `react` tool should be discoverable. Per-account dispatch is
+ * still scoped inside handleAction by the resolved account.
+ */
+function collectXmppActionBlocks(
+  xmppConfig?: Record<string, unknown>
+): Record<string, boolean>[] {
+  if (!xmppConfig) return [];
+  const blocks: Record<string, boolean>[] = [];
+
+  const topLevel = xmppConfig.actions as Record<string, boolean> | undefined;
+  if (topLevel) blocks.push(topLevel);
+
+  const accounts = xmppConfig.accounts as
+    | Record<string, Record<string, unknown>>
+    | undefined;
+  if (accounts) {
+    for (const account of Object.values(accounts)) {
+      const accountActions = account?.actions as
+        | Record<string, boolean>
+        | undefined;
+      if (accountActions) blocks.push(accountActions);
+    }
+  }
+
+  return blocks;
+}
+
+/**
+ * True if `action` is enabled in any of the collected action blocks.
+ */
+function anyGateEnabled(
+  blocks: Record<string, boolean>[],
+  action: string
+): boolean {
+  for (const block of blocks) {
+    if (createActionGate(block)(action)) return true;
+  }
+  return false;
+}
+
+/**
+ * List available actions for XMPP — legacy adapter shape, kept for any caller
+ * that still queries it. The canonical discovery surface used by OpenClaw's
+ * tool-schema builder is `describeXmppMessageTool` below; modifications to
+ * the supported-action set should land in both to stay consistent.
  */
 export function listXmppActions(cfg: OpenClawConfig): ChannelMessageActionName[] {
   const xmppConfig = cfg.channels?.xmpp as Record<string, unknown> | undefined;
-  const actionsConfig = xmppConfig?.actions as Record<string, boolean> | undefined;
+  const blocks = collectXmppActionBlocks(xmppConfig);
+  if (blocks.length === 0) return [];
 
-  if (!actionsConfig) {
-    return [];
-  }
-
-  const gate = createActionGate(actionsConfig);
   const actions: ChannelMessageActionName[] = [];
 
   // XEP-0444: Message Reactions
-  if (gate("reactions")) {
+  if (anyGateEnabled(blocks, "reactions")) {
     actions.push("react");
   }
 
   return actions;
+}
+
+/**
+ * Canonical discovery surface for the shared `message` tool.
+ *
+ * OpenClaw's runtime (resolveMessageActionDiscoveryForPlugin in
+ * @openclaw/plugin-sdk) calls `adapter.describeMessageTool(...)` at tool
+ * registration time to learn which actions a channel adds to the LLM's
+ * `message(action=..., ...)` enum, and to merge any plugin-owned parameters
+ * into the tool schema. Without this method present, the legacy `listActions`
+ * is NOT consulted — the action is silently dropped and the agent never sees
+ * `react` as a callable action.
+ *
+ * Returns the action set gated on `channels.xmpp.actions.*` config plus a
+ * schema contribution that surfaces the `react`-specific parameters
+ * (`emoji`, `messageId`, `remove`) on the shared `message` tool. The schema
+ * is scoped to the `react` action so unrelated actions don't inherit it.
+ */
+export function describeXmppMessageTool(
+  { cfg }: { cfg: OpenClawConfig }
+): {
+  actions: ChannelMessageActionName[];
+  schema?: {
+    properties: Record<string, unknown>;
+    actions: ChannelMessageActionName[];
+    visibility: "current-channel" | "all-configured";
+  };
+} | null {
+  const xmppConfig = cfg.channels?.xmpp as Record<string, unknown> | undefined;
+  // Walk both the single-account top-level shape (channels.xmpp.actions.*) and
+  // the multi-account shape (channels.xmpp.accounts.<id>.actions.*) so this
+  // works across all deployment layouts. See collectXmppActionBlocks above.
+  const blocks = collectXmppActionBlocks(xmppConfig);
+  if (blocks.length === 0) return null;
+
+  const actions: ChannelMessageActionName[] = [];
+
+  // XEP-0444: Message Reactions
+  if (anyGateEnabled(blocks, "reactions")) {
+    actions.push("react");
+  }
+
+  if (actions.length === 0) {
+    return null;
+  }
+
+  return {
+    actions,
+    // Plugin-owned react params. `messageId` defaults to "most recent inbound
+    // message from this conversation" inside handleAction when omitted, so
+    // it's only useful when the agent wants to react to a non-most-recent
+    // message — keep it optional so the LLM isn't forced to invent one.
+    schema: {
+      properties: {
+        emoji: {
+          type: "string",
+          description: "Emoji to react with (XEP-0444). Required for react.",
+        },
+        messageId: {
+          type: "string",
+          description:
+            "Stanza id of the message to react to. Optional — defaults to the most recent inbound message from this conversation.",
+        },
+        remove: {
+          type: "boolean",
+          description:
+            "True to remove an existing reaction with the given emoji (otherwise adds it).",
+        },
+      },
+      actions: ["react"],
+      visibility: "current-channel",
+    },
+  };
 }
 
 /**
@@ -223,6 +344,13 @@ export async function handleXmppAction(params: {
  * XMPP Message Actions adapter
  */
 export const xmppMessageActions = {
+  // Canonical discovery surface — what OpenClaw's tool builder actually calls.
+  // Returning null disables every XMPP-specific action on the message tool
+  // (the channel still works for plain `send`, which is built into the tool).
+  describeMessageTool: ({ cfg }: { cfg: OpenClawConfig }) =>
+    describeXmppMessageTool({ cfg }),
+
+  // Legacy / fallback shape; some older code paths still query this.
   listActions: ({ cfg }: { cfg: OpenClawConfig }) => listXmppActions(cfg),
 
   supportsAction: ({ action }: { action: string }) => supportsXmppAction(action),
