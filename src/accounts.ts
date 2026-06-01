@@ -88,7 +88,18 @@ export function resolveXmppAccount(params: {
   let config: XmppConfig;
 
   if (accountId === DEFAULT_ACCOUNT_ID) {
-    config = root ?? ({} as XmppConfig);
+    // The default account's settings normally live at the channels.xmpp root,
+    // but OpenClaw's config normalization can relocate them under
+    // accounts[DEFAULT_ACCOUNT_ID] (leaving root.jid unset) — e.g. on a
+    // multi-account host where the primary account (pierce@) sits in
+    // accounts.default beside named accounts (ledger@/pixel@). Resolving to
+    // bare root then yields no jid, so the gateway treats the default account
+    // as unconfigured and silently never starts it (no "Starting XMPP
+    // connection" log — the account just disappears while named ones connect).
+    // Merge both layouts so the default account resolves whether its jid lives
+    // at the root or under accounts[DEFAULT_ACCOUNT_ID].
+    const nested = root?.accounts?.[accountId] as XmppConfig | undefined;
+    config = { ...(root ?? {}), ...(nested ?? {}) } as XmppConfig;
   } else {
     const accountConfig = getAccountConfig(cfg, accountId);
     // Merge account config with root for inherited settings
