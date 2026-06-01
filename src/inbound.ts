@@ -189,27 +189,26 @@ export async function handleInboundMessage(
   // For MUC: MUST use stanzaId (XEP-0359) per XEP-0444 — the stanza's `id`
   // attr MUST NOT be used.
   //
-  // For DMs: also prefer stanzaId. Reaction-aware clients (Conversations,
-  // Dino, modern Gajim) index inbound messages by the XEP-0359 stanza-id
-  // their server attaches on receipt, NOT by the sender's original `id`
-  // attribute (rawStanzaId). Sending `<reactions id="rawStanzaId">` against
-  // a stanza-id-indexed client looks like a reaction targeting nothing, and
-  // the reaction is silently dropped on the receiving side. Observed
-  // 2026-05-31: agent calls react, the gateway reports success, but
-  // Conversations renders nothing because the id we picked from
-  // rawStanzaId didn't match what Conversations had indexed.
-  //
-  // Falls back to rawStanzaId then `id` only when the server didn't attach
-  // a stanza-id (rare — most modern servers including Prosody do this by
-  // default) so we still have *something* to use as a stable reference.
+  // For DMs: target the SENDER's <origin-id> (XEP-0359). Per XEP-0444 a 1:1
+  // reaction references the message by the *sender's* stable id, and
+  // Conversations (and Dino/modern Gajim) index their OWN sent messages by the
+  // origin-id they attached — NOT by the recipient-server stanza-id (which is
+  // assigned per-archive and differs between the two parties on the same
+  // server). We previously cycled rawStanzaId (sender `id` attr) and then
+  // stanzaId (recipient-server XEP-0359 id); 2026-05-31 confirmed neither
+  // renders in Conversations — the reaction silently targets nothing and
+  // Pierce ends up narrating "Added 👍" as a plain message instead. origin-id
+  // is the value XEP-0444 actually specifies for 1:1. Falls back to the `id`
+  // attribute (== rawStanzaId), then the recipient stanza-id, only when the
+  // sender didn't attach an origin-id.
   const inboundMessageId = message.isGroup
     ? (message.stanzaId || message.id)  // MUC: stanza-id is required for reactions
-    : (message.stanzaId || message.rawStanzaId || message.id);  // DM: prefer stanza-id for reaction-aware clients
+    : (message.originId || message.rawStanzaId || message.id || message.stanzaId);  // DM: sender origin-id
   if (inboundMessageId) {
     // For DMs, record with senderBare
     if (!message.isGroup && senderBare) {
       recordInboundMessageId(accountId, senderBare, inboundMessageId);
-      console.log(`[XMPP:inbound] Recorded inbound message ID: ${inboundMessageId} (rawStanzaId=${message.rawStanzaId}, stanzaId=${message.stanzaId}, id=${message.id}) from ${senderBare}`);
+      console.log(`[XMPP:inbound] Recorded inbound message ID: ${inboundMessageId} (originId=${message.originId}, rawStanzaId=${message.rawStanzaId}, stanzaId=${message.stanzaId}, id=${message.id}) from ${senderBare}`);
     }
     // For MUC/group, also record with roomJid so fallback lookup can find it
     // (AI will use roomJid as target when reacting to group messages)

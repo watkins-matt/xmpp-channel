@@ -708,6 +708,10 @@ function setupMessageHandler(
       })(),
       // Raw stanza 'id' attribute (some clients like Gajim use this directly)
       rawStanzaId: stanza.attrs.id,
+      // XEP-0359 <origin-id>: the SENDER's stable id. For a 1:1 chat this is the
+      // id XEP-0444 says a reaction must target — Conversations indexes its own
+      // sent messages by origin-id, not by the recipient-server stanza-id.
+      originId: stanza.getChild("origin-id", "urn:xmpp:sid:0")?.attrs?.id || undefined,
       wasEncrypted,
       // For MUC, we need the actual sender JID for OMEMO encryption
       // This is extracted from the stanza's 'from' attribute before we modified senderJid

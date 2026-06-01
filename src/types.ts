@@ -146,6 +146,10 @@ export interface XmppInboundMessage {
   stanzaId?: string;
   /** Raw stanza 'id' attribute (some clients like Gajim use this directly) */
   rawStanzaId?: string;
+  /** XEP-0359 <origin-id> — the SENDER's stable self-assigned id. Per XEP-0444
+   *  this is what a 1:1 reaction must target (Conversations indexes its own sent
+   *  messages by origin-id, NOT by the recipient-server stanza-id). */
+  originId?: string;
   /** True if the incoming message was OMEMO encrypted */
   wasEncrypted?: boolean;
   /** Sender JID for OMEMO encryption (bare JID, needed for MUC) */
