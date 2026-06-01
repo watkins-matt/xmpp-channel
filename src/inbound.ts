@@ -238,6 +238,13 @@ export async function handleInboundMessage(
   const replyTo = message.isGroup ? message.roomJid! : bareJid(senderBare);
   await sendChatState(accountId, replyTo, "composing", log);
 
+  // Track whether the turn produced deliverable text. A reaction-only turn
+  // (action=react) or a silent/NO_REPLY turn never invokes the deliver callback,
+  // so deliverReply — which clears "composing" with an "active" on completion —
+  // never runs, and the typing indicator hangs ("Pierce is typing" long after
+  // he's done) until the client times out. We clear it explicitly below.
+  let delivered = false;
+
   log?.info?.(`[XMPP] Dispatching reply for session ${route.sessionKey}`);
 
   // Dispatch reply
@@ -247,6 +254,7 @@ export async function handleInboundMessage(
     dispatcherOptions: {
       responsePrefix: "",
       deliver: async (payload: { text?: string; markdown?: string; mediaUrl?: string; mediaUrls?: string[] }) => {
+        delivered = true;
         log?.info?.(`[XMPP] Deliver callback invoked with: text=${payload.text?.length ?? 0} chars, markdown=${payload.markdown?.length ?? 0} chars`);
         const replyTarget = message.isGroup ? message.roomJid! : bareJid(senderIdentity);
         debouncedDeliver(replyTarget, payload, async (combined) => {
@@ -255,7 +263,14 @@ export async function handleInboundMessage(
       },
     },
   });
-  
+
+  // Reaction-only or silent turn: deliverReply never ran, so the "composing"
+  // state set on start would hang. Clear it now. (Text replies clear it inside
+  // deliverReply when the debounced send fires.)
+  if (!delivered) {
+    await sendChatState(accountId, replyTo, "active", log);
+  }
+
   log?.info?.(`[XMPP] Reply dispatch completed`);
 }
 
