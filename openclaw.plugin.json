@@ -3,7 +3,9 @@
   "name": "XMPP Channel",
   "description": "XMPP/Jabber channel plugin for Prosody, ejabberd, and other XMPP servers",
   "version": "4.1.0",
-  "channels": ["xmpp"],
+  "channels": [
+    "xmpp"
+  ],
   "configSchema": {
     "type": "object",
     "additionalProperties": true,
@@ -45,34 +47,50 @@
       },
       "dmPolicy": {
         "type": "string",
-        "enum": ["disabled", "open", "pairing", "allowlist"],
+        "enum": [
+          "disabled",
+          "open",
+          "pairing",
+          "allowlist"
+        ],
         "default": "open",
         "description": "Guest direct chat policy: disabled (owners only), open (allow all), pairing (require approval), allowlist (only allowFrom)"
       },
       "groupPolicy": {
         "type": "string",
-        "enum": ["open", "allowlist"],
+        "enum": [
+          "open",
+          "allowlist"
+        ],
         "default": "open",
         "description": "Group message policy"
       },
       "allowFrom": {
         "type": "array",
-        "items": { "type": "string" },
+        "items": {
+          "type": "string"
+        },
         "description": "Bot owner JIDs (always have direct chat access, cannot be removed by guests)"
       },
       "dmAllowlist": {
         "type": "array",
-        "items": { "type": "string" },
+        "items": {
+          "type": "string"
+        },
         "description": "JIDs allowed to direct-chat when dmPolicy is 'allowlist' (owners always have access regardless)"
       },
       "groupAllowFrom": {
         "type": "array",
-        "items": { "type": "string" },
+        "items": {
+          "type": "string"
+        },
         "description": "Allowed sender JIDs in groups (falls back to allowFrom)"
       },
       "groups": {
         "type": "array",
-        "items": { "type": "string" },
+        "items": {
+          "type": "string"
+        },
         "description": "Group chat rooms to auto-join"
       },
       "actions": {
@@ -97,7 +115,10 @@
       },
       "heartbeatVisibility": {
         "type": "string",
-        "enum": ["visible", "hidden"],
+        "enum": [
+          "visible",
+          "hidden"
+        ],
         "description": "Heartbeat message visibility"
       },
       "sendReadReceipts": {
@@ -110,26 +131,117 @@
         "additionalProperties": {
           "type": "object",
           "properties": {
-            "jid": { "type": "string", "description": "Bot JID" },
-            "password": { "type": "string", "sensitive": true, "description": "XMPP password" },
-            "server": { "type": "string", "description": "XMPP server hostname" },
-            "port": { "type": "number", "default": 5222, "description": "XMPP server port" },
-            "resource": { "type": "string", "description": "XMPP resource identifier" },
-            "nickname": { "type": "string", "description": "Nickname in group chats" },
-            "name": { "type": "string", "description": "Account display name" },
-            "enabled": { "type": "boolean", "default": true, "description": "Whether enabled" },
-            "configWrites": { "type": "boolean", "default": true, "description": "Allow agent config modifications" },
-            "dmPolicy": { "type": "string", "enum": ["disabled", "open", "pairing", "allowlist"], "description": "Guest direct chat policy" },
-            "groupPolicy": { "type": "string", "enum": ["open", "allowlist"], "description": "Group policy" },
-            "allowFrom": { "type": "array", "items": { "type": "string" }, "description": "Bot owner JIDs (always have direct chat access)" },
-            "dmAllowlist": { "type": "array", "items": { "type": "string" }, "description": "DM allowlist JIDs (when dmPolicy is 'allowlist')" },
-            "groupAllowFrom": { "type": "array", "items": { "type": "string" }, "description": "Allowed group senders" },
-            "groups": { "type": "array", "items": { "type": "string" }, "description": "Group chat rooms to join" },
-            "actions": { "type": "object", "description": "Action configuration" },
-            "messagePrefix": { "type": "string", "description": "Inbound message prefix" },
-            "heartbeatVisibility": { "type": "string", "enum": ["visible", "hidden"], "description": "Heartbeat visibility" },
-            "groupSettings": { "type": "object", "description": "Per-group settings" },
-            "sendReadReceipts": { "type": "boolean", "default": true, "description": "Send read receipts (XEP-0333)" }
+            "jid": {
+              "type": "string",
+              "description": "Bot JID"
+            },
+            "password": {
+              "type": "string",
+              "sensitive": true,
+              "description": "XMPP password"
+            },
+            "server": {
+              "type": "string",
+              "description": "XMPP server hostname"
+            },
+            "port": {
+              "type": "number",
+              "default": 5222,
+              "description": "XMPP server port"
+            },
+            "resource": {
+              "type": "string",
+              "description": "XMPP resource identifier"
+            },
+            "nickname": {
+              "type": "string",
+              "description": "Nickname in group chats"
+            },
+            "name": {
+              "type": "string",
+              "description": "Account display name"
+            },
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether enabled"
+            },
+            "configWrites": {
+              "type": "boolean",
+              "default": true,
+              "description": "Allow agent config modifications"
+            },
+            "dmPolicy": {
+              "type": "string",
+              "enum": [
+                "disabled",
+                "open",
+                "pairing",
+                "allowlist"
+              ],
+              "description": "Guest direct chat policy"
+            },
+            "groupPolicy": {
+              "type": "string",
+              "enum": [
+                "open",
+                "allowlist"
+              ],
+              "description": "Group policy"
+            },
+            "allowFrom": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Bot owner JIDs (always have direct chat access)"
+            },
+            "dmAllowlist": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "DM allowlist JIDs (when dmPolicy is 'allowlist')"
+            },
+            "groupAllowFrom": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Allowed group senders"
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Group chat rooms to join"
+            },
+            "actions": {
+              "type": "object",
+              "description": "Action configuration"
+            },
+            "messagePrefix": {
+              "type": "string",
+              "description": "Inbound message prefix"
+            },
+            "heartbeatVisibility": {
+              "type": "string",
+              "enum": [
+                "visible",
+                "hidden"
+              ],
+              "description": "Heartbeat visibility"
+            },
+            "groupSettings": {
+              "type": "object",
+              "description": "Per-group settings"
+            },
+            "sendReadReceipts": {
+              "type": "boolean",
+              "default": true,
+              "description": "Send read receipts (XEP-0333)"
+            }
           }
         },
         "description": "Multi-account configuration"
@@ -139,13 +251,34 @@
         "additionalProperties": {
           "type": "object",
           "properties": {
-            "requireMention": { "type": "boolean", "description": "Require @mention in this group" },
+            "requireMention": {
+              "type": "boolean",
+              "description": "Require @mention in this group"
+            },
             "tools": {
               "type": "object",
               "properties": {
-                "allow": { "type": "array", "items": { "type": "string" }, "description": "Allowed tools" },
-                "alsoAllow": { "type": "array", "items": { "type": "string" }, "description": "Additional allowed tools" },
-                "deny": { "type": "array", "items": { "type": "string" }, "description": "Denied tools" }
+                "allow": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Allowed tools"
+                },
+                "alsoAllow": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Additional allowed tools"
+                },
+                "deny": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Denied tools"
+                }
               },
               "description": "Tool access policy"
             },
@@ -154,9 +287,24 @@
               "additionalProperties": {
                 "type": "object",
                 "properties": {
-                  "allow": { "type": "array", "items": { "type": "string" } },
-                  "alsoAllow": { "type": "array", "items": { "type": "string" } },
-                  "deny": { "type": "array", "items": { "type": "string" } }
+                  "allow": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "alsoAllow": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deny": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
                 }
               },
               "description": "Per-sender tool access overrides"
@@ -164,6 +312,364 @@
           }
         },
         "description": "Per-group settings (keyed by room JID)"
+      }
+    }
+  },
+  "channelConfigs": {
+    "xmpp": {
+      "schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "jid": {
+            "type": "string",
+            "description": "Bot JID (e.g., bot@example.com)"
+          },
+          "password": {
+            "type": "string",
+            "description": "XMPP account password",
+            "sensitive": true
+          },
+          "server": {
+            "type": "string",
+            "description": "XMPP server hostname (defaults to JID domain)"
+          },
+          "port": {
+            "type": "number",
+            "default": 5222,
+            "description": "XMPP server port"
+          },
+          "resource": {
+            "type": "string",
+            "description": "XMPP resource identifier"
+          },
+          "nickname": {
+            "type": "string",
+            "description": "Nickname in group chats (defaults to JID local part)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Account display name"
+          },
+          "configWrites": {
+            "type": "boolean",
+            "default": true,
+            "description": "Allow agent to modify config (add users to allowlist, etc.)"
+          },
+          "dmPolicy": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "open",
+              "pairing",
+              "allowlist"
+            ],
+            "default": "open",
+            "description": "Guest direct chat policy: disabled (owners only), open (allow all), pairing (require approval), allowlist (only allowFrom)"
+          },
+          "groupPolicy": {
+            "type": "string",
+            "enum": [
+              "open",
+              "allowlist"
+            ],
+            "default": "open",
+            "description": "Group message policy"
+          },
+          "allowFrom": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Bot owner JIDs (always have direct chat access, cannot be removed by guests)"
+          },
+          "dmAllowlist": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "JIDs allowed to direct-chat when dmPolicy is 'allowlist' (owners always have access regardless)"
+          },
+          "groupAllowFrom": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed sender JIDs in groups (falls back to allowFrom)"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Group chat rooms to auto-join"
+          },
+          "actions": {
+            "type": "object",
+            "properties": {
+              "reactions": {
+                "type": "boolean",
+                "default": false,
+                "description": "Enable XEP-0444 message reactions"
+              },
+              "sendMessage": {
+                "type": "boolean",
+                "default": true,
+                "description": "Enable send message action"
+              }
+            },
+            "description": "Action configuration"
+          },
+          "messagePrefix": {
+            "type": "string",
+            "description": "Inbound message prefix"
+          },
+          "heartbeatVisibility": {
+            "type": "string",
+            "enum": [
+              "visible",
+              "hidden"
+            ],
+            "description": "Heartbeat message visibility"
+          },
+          "sendReadReceipts": {
+            "type": "boolean",
+            "default": true,
+            "description": "Send read receipts (XEP-0333 chat markers) for incoming messages"
+          },
+          "accounts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "jid": {
+                  "type": "string",
+                  "description": "Bot JID"
+                },
+                "password": {
+                  "type": "string",
+                  "sensitive": true,
+                  "description": "XMPP password"
+                },
+                "server": {
+                  "type": "string",
+                  "description": "XMPP server hostname"
+                },
+                "port": {
+                  "type": "number",
+                  "default": 5222,
+                  "description": "XMPP server port"
+                },
+                "resource": {
+                  "type": "string",
+                  "description": "XMPP resource identifier"
+                },
+                "nickname": {
+                  "type": "string",
+                  "description": "Nickname in group chats"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Account display name"
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Whether enabled"
+                },
+                "configWrites": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Allow agent config modifications"
+                },
+                "dmPolicy": {
+                  "type": "string",
+                  "enum": [
+                    "disabled",
+                    "open",
+                    "pairing",
+                    "allowlist"
+                  ],
+                  "description": "Guest direct chat policy"
+                },
+                "groupPolicy": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "allowlist"
+                  ],
+                  "description": "Group policy"
+                },
+                "allowFrom": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Bot owner JIDs (always have direct chat access)"
+                },
+                "dmAllowlist": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "DM allowlist JIDs (when dmPolicy is 'allowlist')"
+                },
+                "groupAllowFrom": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Allowed group senders"
+                },
+                "groups": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Group chat rooms to join"
+                },
+                "actions": {
+                  "type": "object",
+                  "description": "Action configuration"
+                },
+                "messagePrefix": {
+                  "type": "string",
+                  "description": "Inbound message prefix"
+                },
+                "heartbeatVisibility": {
+                  "type": "string",
+                  "enum": [
+                    "visible",
+                    "hidden"
+                  ],
+                  "description": "Heartbeat visibility"
+                },
+                "groupSettings": {
+                  "type": "object",
+                  "description": "Per-group settings"
+                },
+                "sendReadReceipts": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Send read receipts (XEP-0333)"
+                }
+              }
+            },
+            "description": "Multi-account configuration"
+          },
+          "groupSettings": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "requireMention": {
+                  "type": "boolean",
+                  "description": "Require @mention in this group"
+                },
+                "tools": {
+                  "type": "object",
+                  "properties": {
+                    "allow": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Allowed tools"
+                    },
+                    "alsoAllow": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Additional allowed tools"
+                    },
+                    "deny": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Denied tools"
+                    }
+                  },
+                  "description": "Tool access policy"
+                },
+                "toolsBySender": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "alsoAllow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "description": "Per-sender tool access overrides"
+                }
+              }
+            },
+            "description": "Per-group settings (keyed by room JID)"
+          }
+        }
+      },
+      "label": "XMPP",
+      "description": "XMPP/Jabber channel with single- or multi-account support, DM/group policies, OMEMO, and XEP media/typing/reactions.",
+      "uiHints": {
+        "": {
+          "label": "XMPP",
+          "help": "XMPP/Jabber channel provider for Prosody, ejabberd, and other XMPP servers. Configure a single account at the root, or multiple under 'accounts'."
+        },
+        "jid": {
+          "label": "Bot JID",
+          "help": "Bot JID, e.g. bot@example.com (single-account setups)."
+        },
+        "password": {
+          "label": "Password",
+          "help": "XMPP account password (sensitive)."
+        },
+        "server": {
+          "label": "Server",
+          "help": "XMPP server hostname (defaults to the JID domain)."
+        },
+        "port": {
+          "label": "Port",
+          "help": "XMPP server port (default 5222)."
+        },
+        "dmPolicy": {
+          "label": "DM Policy",
+          "help": "Direct message access: disabled (owners only), open (allow all), pairing (require approval), allowlist (only allowFrom/dmAllowlist)."
+        },
+        "groupPolicy": {
+          "label": "Group Policy",
+          "help": "Group message access: open or allowlist."
+        },
+        "allowFrom": {
+          "label": "Owner JIDs",
+          "help": "Bot owner JIDs \u2014 always have direct chat access and cannot be removed by guests."
+        },
+        "accounts": {
+          "label": "Accounts",
+          "help": "Multi-account map keyed by account id; each entry mirrors the single-account fields."
+        },
+        "configWrites": {
+          "label": "Config Writes",
+          "help": "Allow the agent to modify config (e.g. add users to the allowlist) in response to channel events."
+        }
       }
     }
   }
