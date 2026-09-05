@@ -31,6 +31,7 @@ import { xmppDirectoryAdapter, xmppResolverAdapter } from "./directory.js";
 import { xmppMessageActions } from "./actions.js";
 import { xmppHeartbeatAdapter } from "./heartbeat.js";
 import { normalizeXmppTarget, looksLikeXmppJid, normalizeXmppMessagingTarget, normalizeAllowFrom, isSenderAllowed } from "./normalize.js";
+import { normalizeXmppOutboundPayload } from "./payload-filter.js";
 
 /**
  * Get XMPP config from OpenClaw config
@@ -326,6 +327,13 @@ export const xmppPlugin = {
     // channels). Without this, any announce-mode cron delivered over XMPP that
     // hits a recovered non-zero tool call is misclassified status=error.
     preferFinalAssistantVisibleText: true,
+
+    // Drop payloads that must never reach a human: agent control tokens
+    // (NO_REPLY / HEARTBEAT_OK / REPLY_SKIP) and the canned string OpenClaw
+    // substitutes when its own settled-turn finalization fails. Returning null
+    // from normalizePayload removes the payload from the delivery batch.
+    // See src/payload-filter.ts for why this lives here and not in a prompt.
+    normalizePayload: normalizeXmppOutboundPayload,
 
     resolveTarget: ({ to, ctx }: { to?: string; ctx?: Record<string, unknown> }): { ok: true; to: string } | { ok: false; error: Error } => {
       // Try explicit target first
