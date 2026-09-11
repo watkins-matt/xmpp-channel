@@ -79,9 +79,9 @@ function carriesNonTextContent(payload: OutboundPayloadLike): boolean {
 /**
  * Unwraps the argument OpenClaw passes to `normalizePayload`.
  *
- * The runtime calls it with the payload directly, while the bundled adapters
- * destructure `{ payload }`. Accept both so this keeps working across host
- * versions rather than silently filtering nothing.
+ * The host passes `{ payload, cfg, accountId }`. A bare payload is accepted too,
+ * so a host that starts passing the payload directly keeps working rather than
+ * silently filtering nothing.
  */
 function unwrapPayload(arg: unknown): OutboundPayloadLike | undefined {
   if (!arg || typeof arg !== "object") return undefined;
@@ -93,12 +93,18 @@ function unwrapPayload(arg: unknown): OutboundPayloadLike | undefined {
 
 /**
  * `normalizePayload` hook: return the payload to deliver it, or `null` to drop it.
- * Returns the ORIGINAL argument on the pass-through path so the host keeps
- * whatever wrapper shape it gave us.
+ *
+ * Always returns the BARE payload, never the argument. The host calls
+ * `outbound.normalizePayload({ payload, cfg, accountId })` and uses the return
+ * value as the payload itself (the bundled Telegram adapter,
+ * `({ payload }) => normalize(payload)`, has the same contract). Handing the
+ * wrapper back gives the host an object with no `text`, which it discards as
+ * `no_visible_payload` — that shipped in 519699f and silently dropped every
+ * outbound message on every account from 2026-09-04 to 2026-09-10.
  */
-export function normalizeXmppOutboundPayload<T>(arg: T): T | null {
+export function normalizeXmppOutboundPayload(arg: unknown): OutboundPayloadLike | null {
   const payload = unwrapPayload(arg);
-  if (!payload) return arg;
-  if (carriesNonTextContent(payload)) return arg;
-  return isNonDeliverableText(payload.text) ? null : arg;
+  if (!payload) return arg as OutboundPayloadLike | null;
+  if (carriesNonTextContent(payload)) return payload;
+  return isNonDeliverableText(payload.text) ? null : payload;
 }
