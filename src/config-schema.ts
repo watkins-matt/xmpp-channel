@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { buildChannelConfigSchema } from "openclaw/plugin-sdk";
+import { buildChannelConfigSchema } from "openclaw/plugin-sdk/channel-config-schema";
 
 /**
  * XMPP action configuration schema

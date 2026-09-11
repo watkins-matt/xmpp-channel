@@ -105,35 +105,53 @@ declare module "openclaw/plugin-sdk" {
     [key: string]: unknown;
   }
 
+}
+
+// Runtime SDK values come from the HOST's OpenClaw through these subpaths
+// (2026.9 has no root `openclaw/plugin-sdk` export). On a gateway host,
+// node_modules/openclaw links to the installed package, so TypeScript resolves
+// the real declarations and these ambient ones are ignored. They only exist so
+// the fork still compiles where OpenClaw is not installed.
+declare module "openclaw/plugin-sdk/account-id" {
+  export const DEFAULT_ACCOUNT_ID: "default";
+  export function normalizeAccountId(value: string | null | undefined): string;
+}
+
+declare module "openclaw/plugin-sdk/core" {
+  export function formatPairingApproveHint(channelId: string): string;
+}
+
+declare module "openclaw/plugin-sdk/plugin-entry" {
   export function emptyPluginConfigSchema(): Record<string, unknown>;
+}
+
+declare module "openclaw/plugin-sdk/channel-config-schema" {
   export function buildChannelConfigSchema(schema: unknown): { schema: Record<string, unknown> };
-  export function formatDocsLink(path: string, label: string): string;
-  export function formatPairingApproveHint(channel: string): string;
+}
 
-  /** Wrap a payload into an AgentToolResult with proper content array */
-  export function jsonResult(payload: unknown): { content: Array<{ type: string; text: string }>; details?: unknown };
+declare module "openclaw/plugin-sdk/channel-policy" {
+  import type { GroupToolPolicyBySenderConfig, GroupToolPolicyConfig } from "openclaw/plugin-sdk";
+  /** Resolve tool policy for a sender from toolsBySender config */
+  export function resolveToolsBySender(params: {
+    toolsBySender?: GroupToolPolicyBySenderConfig;
+    senderId?: string | null;
+    senderName?: string | null;
+    senderUsername?: string | null;
+    senderE164?: string | null;
+  }): GroupToolPolicyConfig | undefined;
+}
 
+declare module "openclaw/plugin-sdk/setup" {
+  import type { OpenClawConfig, WizardPrompter } from "openclaw/plugin-sdk";
+  export function formatDocsLink(path: string | undefined | null, label?: string): string;
   export function promptAccountId(params: {
     cfg: OpenClawConfig;
     prompter: WizardPrompter;
     label: string;
-    currentId: string;
+    currentId?: string;
     listAccountIds: (cfg: OpenClawConfig) => string[];
     defaultAccountId: string;
   }): Promise<string>;
-
-  export const DEFAULT_ACCOUNT_ID: string;
-  export function normalizeAccountId(id: string | null | undefined): string;
-  export const PAIRING_APPROVED_MESSAGE: string;
-  
-  /** Resolve tool policy for a sender from toolsBySender config */
-  export function resolveToolsBySender(params: {
-    toolsBySender?: GroupToolPolicyBySenderConfig;
-    senderId?: string;
-    senderName?: string;
-    senderUsername?: string;
-    senderE164?: string;
-  }): GroupToolPolicyConfig | undefined;
 }
 
 declare module "@xmpp/client" {

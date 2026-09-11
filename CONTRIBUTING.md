@@ -100,10 +100,22 @@ npm run format:check
 
 ### Testing
 
+The plugin runs on the **host's** OpenClaw SDK. `openclaw` is an optional peer
+dependency, so npm never installs its own copy; on a gateway,
+`node_modules/openclaw` is a symlink to the installed package. The tests import
+the plugin through that real SDK, so run them where it exists:
+
 ```bash
-# Run tests
-npm test
+# Copy the working tree to a gateway host, link its OpenClaw, run tests + build
+npm run test:host -- openclaw-keep
+
+# Or, on a machine with OpenClaw installed at /usr/lib/node_modules/openclaw:
+ln -sfn /usr/lib/node_modules/openclaw node_modules/openclaw && npm test -- --run
 ```
+
+`npm run build` works anywhere: `src/declarations.d.ts` declares the SDK
+subpaths for machines without OpenClaw, and TypeScript prefers the real
+declarations when the link is present.
 
 ### Building
 

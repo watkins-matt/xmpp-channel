@@ -5,7 +5,9 @@
 import "./process-guards.js";
 
 import type { OpenClawConfig, GroupToolPolicyConfig } from "openclaw/plugin-sdk";
-import { DEFAULT_ACCOUNT_ID, formatPairingApproveHint, resolveToolsBySender } from "openclaw/plugin-sdk";
+import { DEFAULT_ACCOUNT_ID } from "openclaw/plugin-sdk/account-id";
+import { formatPairingApproveHint } from "openclaw/plugin-sdk/core";
+import { resolveToolsBySender } from "openclaw/plugin-sdk/channel-policy";
 import type {
   XmppConfig,
   XmppGroupConfig,

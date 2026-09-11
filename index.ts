@@ -1,5 +1,5 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import { emptyPluginConfigSchema } from "openclaw/plugin-sdk";
+import { emptyPluginConfigSchema } from "openclaw/plugin-sdk/plugin-entry";
 import { xmppPlugin } from "./src/channel.js";
 import { setXmppRuntime } from "./src/runtime.js";
 

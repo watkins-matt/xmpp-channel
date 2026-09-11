@@ -27,7 +27,8 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\" \"index.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"index.ts\"",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test:host": "scripts/test-on-host.sh"
   },
   "repository": {
     "type": "git",
@@ -46,7 +47,8 @@
     "@privacyresearch/libsignal-protocol-typescript": "^0.0.16",
     "@xmpp/client": "^0.13.1",
     "@xmpp/debug": "^0.13.1",
-    "mime-types": "^3.0.2"
+    "mime-types": "^3.0.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/mime-types": "^3.0.1",
@@ -60,10 +62,7 @@
     "vitest": "^1.0.0"
   },
   "peerDependencies": {
-    "openclaw": "^2026.2.2-3"
-  },
-  "overrides": {
-    "zod": "4.3.6"
+    "openclaw": ">=2026.8.2"
   },
   "openclaw": {
     "extensions": [
@@ -93,5 +92,10 @@
     "chat",
     "messaging",
     "im"
-  ]
+  ],
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  }
 }
