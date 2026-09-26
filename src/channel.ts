@@ -34,6 +34,7 @@ import { xmppMessageActions } from "./actions.js";
 import { xmppHeartbeatAdapter } from "./heartbeat.js";
 import { normalizeXmppTarget, looksLikeXmppJid, normalizeXmppMessagingTarget, normalizeAllowFrom, isSenderAllowed } from "./normalize.js";
 import { normalizeXmppOutboundPayload } from "./payload-filter.js";
+import { hasXmppPassword } from "./secret.js";
 
 /**
  * Get XMPP config from OpenClaw config
@@ -54,7 +55,7 @@ function getConfig(cfg: OpenClawConfig, accountId?: string): XmppConfig {
  */
 function isConfigured(cfg: OpenClawConfig, accountId?: string): boolean {
   const config = getConfig(cfg, accountId);
-  return Boolean(config.jid && config.password);
+  return Boolean(config.jid && hasXmppPassword(config.password));
 }
 
 /**
@@ -180,7 +181,7 @@ export const xmppPlugin = {
     disabledReason: (): string => "disabled",
     
     isConfigured: (account: ResolvedXmppAccount): boolean =>
-      Boolean(account.config?.jid && account.config?.password),
+      Boolean(account.config?.jid && hasXmppPassword(account.config?.password)),
     unconfiguredReason: (): string => "not configured",
     
     describeAccount: (account: ResolvedXmppAccount): XmppAccountDescriptor => ({
@@ -503,7 +504,7 @@ export const xmppPlugin = {
     },
     
     buildChannelSummary: async ({ account, snapshot }: { account: ResolvedXmppAccount; snapshot?: ChannelAccountSnapshot }) => ({
-      configured: Boolean(account.config?.jid && account.config?.password),
+      configured: Boolean(account.config?.jid && hasXmppPassword(account.config?.password)),
       enabled: account.enabled,
       running: snapshot?.running ?? false,
       connected: snapshot?.connected ?? false,
@@ -517,7 +518,7 @@ export const xmppPlugin = {
       accountId: account.accountId,
       name: account.config?.name,
       enabled: account.enabled,
-      configured: Boolean(account.config?.jid && account.config?.password),
+      configured: Boolean(account.config?.jid && hasXmppPassword(account.config?.password)),
       running: runtime?.running ?? false,
       connected: runtime?.connected ?? false,
       lastStartAt: runtime?.lastStartAt ?? null,

@@ -4,6 +4,7 @@ import { formatDocsLink, promptAccountId } from "openclaw/plugin-sdk/setup";
 import type { ChannelOnboardingAdapter, ChannelOnboardingStatus, ChannelOnboardingResult } from "./types.js";
 import { listXmppAccountIds, resolveDefaultXmppAccountId, resolveXmppAccount } from "./accounts.js";
 import { bareJid } from "./config-schema.js";
+import { hasXmppPassword } from "./secret.js";
 
 const channel = "xmpp" as const;
 
@@ -220,7 +221,7 @@ export const xmppOnboardingAdapter: ChannelOnboardingAdapter = {
     const defaultAccountId = resolveDefaultXmppAccountId(cfg);
     const accountId = overrideId ? normalizeAccountId(overrideId) : defaultAccountId;
     const account = resolveXmppAccount({ cfg, accountId });
-    const configured = Boolean(account?.config?.jid && account?.config?.password);
+    const configured = Boolean(account?.config?.jid && hasXmppPassword(account?.config?.password));
     const accountLabel = accountId === DEFAULT_ACCOUNT_ID ? "default" : accountId;
 
     return {

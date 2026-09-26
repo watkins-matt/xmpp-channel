@@ -44,6 +44,7 @@ import {
   prefetchDeviceLists,
 } from "./omemo/index.js";
 import { bootstrapKnownContacts } from "./bootstrap.js";
+import { hasXmppPassword, resolvedXmppPassword } from "./secret.js";
 
 // =============================================================================
 // RE-EXPORTS for backward compatibility
@@ -125,9 +126,13 @@ export async function startXmppConnection(ctx: GatewayStartContext): Promise<voi
 
   log?.debug?.(`[${accountId}] Gateway context: hasSetStatus=${!!setStatus}`);
 
-  if (!config.jid || !config.password) {
+  if (!config.jid || !hasXmppPassword(config.password)) {
     throw new Error("XMPP jid and password are required");
   }
+  const password = resolvedXmppPassword(
+    config.password,
+    accountId === "default" ? "channels.xmpp.password" : `channels.xmpp.accounts.${accountId}.password`,
+  );
 
   const server = resolveServer(config);
   const username = extractUsername(config.jid);
@@ -157,7 +162,7 @@ export async function startXmppConnection(ctx: GatewayStartContext): Promise<voi
     service: `xmpp://${server}:${config.port ?? 5222}`,
     domain: server,
     username,
-    password: config.password,
+    password,
     resource: sessionResource,
   });
 

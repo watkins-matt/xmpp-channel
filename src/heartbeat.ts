@@ -5,6 +5,7 @@
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import { resolveXmppAccount } from "./accounts.js";
 import { getActiveClient } from "./monitor.js";
+import { hasXmppPassword } from "./secret.js";
 
 /**
  * Heartbeat check result
@@ -33,7 +34,7 @@ export async function checkXmppHeartbeatReady(params: {
   const account = resolveXmppAccount({ cfg, accountId });
 
   // Check if configured
-  if (!account.config?.jid || !account.config?.password) {
+  if (!account.config?.jid || !hasXmppPassword(account.config?.password)) {
     return { ok: false, reason: "xmpp-not-configured" };
   }
 

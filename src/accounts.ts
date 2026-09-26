@@ -1,6 +1,7 @@
 import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "openclaw/plugin-sdk/account-id";
 import type { XmppConfig, ResolvedXmppAccount } from "./types.js";
+import { hasXmppPassword } from "./secret.js";
 
 /**
  * Get root XMPP config from OpenClaw config
@@ -131,6 +132,6 @@ export function listEnabledXmppAccounts(cfg: OpenClawConfig): ResolvedXmppAccoun
 export function isXmppConfigured(cfg: OpenClawConfig): boolean {
   return listXmppAccountIds(cfg).some((id) => {
     const account = resolveXmppAccount({ cfg, accountId: id });
-    return Boolean(account.config?.jid && account.config?.password);
+    return Boolean(account.config?.jid && hasXmppPassword(account.config?.password));
   });
 }

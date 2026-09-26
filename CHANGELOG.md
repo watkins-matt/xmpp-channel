@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **SecretRef support for account passwords.** `channels.xmpp.password` and
+  `channels.xmpp.accounts.<id>.password` may now be a SecretRef
+  (`{ "source": "file", "provider": "openbao", "id": "/xmpp/default/password" }`, or
+  env/exec/store). The plugin ships a channel secret contract (`secret-contract-api.ts`,
+  SDK `createSimpleChannelSecretContract`, account inheritance), so the gateway resolves
+  refs before an account starts, `openclaw secrets audit/configure/apply` see the field, and
+  `openclaw secrets reload` restarts only the account whose password changed. The config
+  and manifest schemas accept string | SecretRef; presence checks treat a ref as configured;
+  the connection refuses an unresolved ref instead of sending it to SASL.
+
 ## [4.1.0] - 2026-02-17
 
 ### Changed

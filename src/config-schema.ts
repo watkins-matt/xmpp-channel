@@ -1,5 +1,29 @@
 import { z } from "zod";
 import { buildChannelConfigSchema } from "openclaw/plugin-sdk/channel-config-schema";
+import { registerSensitiveConfigSchema } from "openclaw/plugin-sdk/secret-input";
+
+const PROVIDER_ALIAS = /^[a-z][a-z0-9_-]{0,63}$/;
+const ENV_STYLE_ID = /^[A-Z][A-Z0-9_]{0,127}$/;
+
+/**
+ * SecretRef ({ source, provider, id }): same shape and patterns as the host's
+ * SecretRefSchema, built with the plugin's own zod (mixing the host's zod
+ * instance into these objects breaks declaration emit). Resolution is the
+ * host's job, via secret-contract-api.ts.
+ */
+const SecretRefSchema = z.discriminatedUnion("source", [
+  z.object({ source: z.literal("env"), provider: z.string().regex(PROVIDER_ALIAS), id: z.string().regex(ENV_STYLE_ID) }).strict(),
+  z.object({ source: z.literal("store"), provider: z.string().regex(PROVIDER_ALIAS), id: z.string().regex(ENV_STYLE_ID) }).strict(),
+  z.object({ source: z.literal("file"), provider: z.string().regex(PROVIDER_ALIAS), id: z.string() }).strict(),
+  z.object({ source: z.literal("exec"), provider: z.string().regex(PROVIDER_ALIAS), id: z.string() }).strict(),
+]);
+
+/** Password: a plain string or a SecretRef. */
+const XmppPasswordSchema = z.union([z.string(), SecretRefSchema]);
+// Mark it sensitive for the host's config redaction. The host types this with
+// its own zod instance; the registry only keys on the schema object, so the
+// cast is safe and keeps our declarations free of the host's zod types.
+registerSensitiveConfigSchema(XmppPasswordSchema as never);
 
 /**
  * XMPP action configuration schema
@@ -58,8 +82,8 @@ export const XmppAccountSchema = z.object({
   /** Bot JID (e.g., bot@example.com) */
   jid: z.string().optional().describe("Bot JID (e.g., bot@example.com)"),
 
-  /** XMPP account password */
-  password: z.string().optional().describe("XMPP account password"),
+  /** XMPP account password: a plain string or a SecretRef ({ source, provider, id }) */
+  password: XmppPasswordSchema.optional().describe("XMPP account password (string or SecretRef)"),
 
   /** XMPP server hostname (defaults to JID domain) */
   server: z.string().optional().describe("XMPP server hostname (defaults to JID domain)"),

@@ -15,8 +15,106 @@
         "description": "Bot JID (e.g., bot@example.com)"
       },
       "password": {
-        "type": "string",
-        "description": "XMPP account password",
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "const": "env"
+                  },
+                  "provider": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                  },
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                  }
+                },
+                "required": [
+                  "source",
+                  "provider",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "const": "store"
+                  },
+                  "provider": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                  },
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                  }
+                },
+                "required": [
+                  "source",
+                  "provider",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "const": "file"
+                  },
+                  "provider": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "provider",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "const": "exec"
+                  },
+                  "provider": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "provider",
+                  "id"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        ],
+        "description": "XMPP account password (plain string or a SecretRef {source, provider, id})",
         "sensitive": true
       },
       "server": {
@@ -136,9 +234,107 @@
               "description": "Bot JID"
             },
             "password": {
-              "type": "string",
-              "sensitive": true,
-              "description": "XMPP password"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "source": {
+                          "type": "string",
+                          "const": "env"
+                        },
+                        "provider": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                        },
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "provider",
+                        "id"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "source": {
+                          "type": "string",
+                          "const": "store"
+                        },
+                        "provider": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                        },
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "provider",
+                        "id"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "source": {
+                          "type": "string",
+                          "const": "file"
+                        },
+                        "provider": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                        },
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "provider",
+                        "id"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "source": {
+                          "type": "string",
+                          "const": "exec"
+                        },
+                        "provider": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                        },
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "provider",
+                        "id"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              ],
+              "description": "XMPP password (plain string or a SecretRef {source, provider, id})",
+              "sensitive": true
             },
             "server": {
               "type": "string",
@@ -327,8 +523,106 @@
             "description": "Bot JID (e.g., bot@example.com)"
           },
           "password": {
-            "type": "string",
-            "description": "XMPP account password",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "env"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "store"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "file"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "exec"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            ],
+            "description": "XMPP account password (plain string or a SecretRef {source, provider, id})",
             "sensitive": true
           },
           "server": {
@@ -448,9 +742,107 @@
                   "description": "Bot JID"
                 },
                 "password": {
-                  "type": "string",
-                  "sensitive": true,
-                  "description": "XMPP password"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "env"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "store"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "file"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "exec"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ],
+                  "description": "XMPP password (plain string or a SecretRef {source, provider, id})",
+                  "sensitive": true
                 },
                 "server": {
                   "type": "string",
@@ -640,7 +1032,7 @@
         },
         "password": {
           "label": "Password",
-          "help": "XMPP account password (sensitive)."
+          "help": "XMPP account password (sensitive). Prefer a SecretRef, e.g. {\"source\":\"file\",\"provider\":\"openbao\",\"id\":\"/xmpp/default/password\"}."
         },
         "server": {
           "label": "Server",
@@ -660,7 +1052,7 @@
         },
         "allowFrom": {
           "label": "Owner JIDs",
-          "help": "Bot owner JIDs \u2014 always have direct chat access and cannot be removed by guests."
+          "help": "Bot owner JIDs — always have direct chat access and cannot be removed by guests."
         },
         "accounts": {
           "label": "Accounts",

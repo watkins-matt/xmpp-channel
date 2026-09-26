@@ -1,4 +1,5 @@
 import type { OpenClawConfig, RuntimeEnv, WizardPrompter } from "openclaw/plugin-sdk";
+import type { SecretInput } from "./secret.js";
 
 /**
  * Direct chat policy type
@@ -60,8 +61,8 @@ export interface XmppOmemoConfig {
 export interface XmppConfig {
   /** Bot JID (e.g., bot@example.com) */
   jid: string;
-  /** XMPP account password */
-  password: string;
+  /** XMPP account password: a string, or a SecretRef until the gateway resolves it (src/secret.ts) */
+  password: SecretInput;
   /** XMPP server hostname (defaults to JID domain) */
   server?: string;
   /** XMPP server port (default: 5222) */

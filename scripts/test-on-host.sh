@@ -27,4 +27,4 @@ ssh "${target}" "set -e
   ln -s /usr/lib/node_modules/openclaw node_modules/openclaw
   echo \"host OpenClaw: \$(node -p \"require('/usr/lib/node_modules/openclaw/package.json').version\")\"
   nice -n 10 npm test -- --run
-  nice -n 10 npm run build >/dev/null && echo 'tsc build: ok'"
+  nice -n 10 npm run build && echo "tsc build: ok""
