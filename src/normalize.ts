@@ -52,6 +52,31 @@ export function isXmppMucJid(jid: string, mucDomains?: string[]): boolean {
 }
 
 /**
+ * Tell OpenClaw whether an outbound target is a person or a room.
+ *
+ * Without this hook, OpenClaw 9.x classifies every bare JID as a GROUP
+ * (detectTargetKind's fallback), so a message-tool send to
+ * `matt@xmpp.astra.buzz` -- the heartbeat's morning briefing -- had its
+ * delivery-mirror copy filed under `agent:<id>:xmpp:group:matt@...`, a session
+ * no inbound DM ever reads. Pierce then had no record of what he had posted
+ * when Matt replied (2026-10-01; 202 briefings in that dead session since
+ * April). Explicit kind prefixes win; otherwise a MUC-domain JID is a room and
+ * every other JID is a person. Returns undefined for non-JIDs so OpenClaw's
+ * own fallbacks still apply.
+ */
+export function inferXmppTargetChatType(params: {
+  to?: string;
+}): "direct" | "group" | undefined {
+  let target = (params.to ?? "").trim().replace(/^(xmpp|jabber):/i, "");
+  if (!target) return undefined;
+  if (/^(user|dm):/i.test(target)) return "direct";
+  if (/^(group|room|channel):/i.test(target)) return "group";
+  target = target.replace(/^(user|dm|group|room|channel):/i, "");
+  if (!looksLikeXmppJid(target)) return undefined;
+  return isXmppMucJid(target) ? "group" : "direct";
+}
+
+/**
  * Normalize XMPP target for messaging
  */
 export function normalizeXmppTarget(raw: string | null | undefined): string | null {

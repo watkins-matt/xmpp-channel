@@ -6,7 +6,7 @@ import type { OpenClawConfig, RuntimeEnv } from "openclaw/plugin-sdk";
 import type { ChannelDirectoryEntry, ChannelResolveResult, XmppConfig } from "./types.js";
 import { resolveXmppAccount } from "./accounts.js";
 import { bareJid } from "./config-schema.js";
-import { looksLikeXmppJid } from "./normalize.js";
+import { isXmppMucJid, looksLikeXmppJid } from "./normalize.js";
 
 /**
  * Get self JID for account
@@ -99,9 +99,24 @@ export async function resolveXmppTargets(params: {
       continue;
     }
     
-    // Check if it looks like a JID
+    // Check if it looks like a JID. A JID only resolves as the KIND asked for:
+    // a person's JID is not a room and a room's JID is not a person. This used
+    // to accept any JID for either kind, so a "group" lookup of
+    // matt@xmpp.astra.buzz succeeded and the target was treated as a room.
     if (looksLikeXmppJid(trimmed)) {
       const normalized = bareJid(trimmed);
+      const configuredRoom = (account.config?.groups ?? []).some(
+        (room) => bareJid(room).toLowerCase() === normalized.toLowerCase(),
+      );
+      const isRoom = configuredRoom || isXmppMucJid(normalized);
+      if ((kind === "group") !== isRoom) {
+        results.push({
+          input,
+          resolved: false,
+          note: kind === "group" ? "not a room JID" : "is a room JID, not a user",
+        });
+        continue;
+      }
       results.push({
         input,
         resolved: true,

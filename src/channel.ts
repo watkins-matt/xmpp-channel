@@ -32,7 +32,7 @@ import { collectXmppStatusIssues } from "./status-issues.js";
 import { xmppDirectoryAdapter, xmppResolverAdapter } from "./directory.js";
 import { xmppMessageActions } from "./actions.js";
 import { xmppHeartbeatAdapter } from "./heartbeat.js";
-import { normalizeXmppTarget, looksLikeXmppJid, normalizeXmppMessagingTarget, normalizeAllowFrom, isSenderAllowed } from "./normalize.js";
+import { normalizeXmppTarget, looksLikeXmppJid, normalizeXmppMessagingTarget, normalizeAllowFrom, isSenderAllowed, inferXmppTargetChatType } from "./normalize.js";
 import { normalizeXmppOutboundPayload } from "./payload-filter.js";
 import { hasXmppPassword } from "./secret.js";
 
@@ -306,6 +306,8 @@ export const xmppPlugin = {
   // Messaging adapter
   messaging: {
     normalizeTarget: normalizeXmppMessagingTarget,
+    // Person vs room for a bare JID; see inferXmppTargetChatType.
+    inferTargetChatType: inferXmppTargetChatType,
     targetResolver: {
       looksLikeId: looksLikeXmppJid,
       hint: "<jid@server.com>",

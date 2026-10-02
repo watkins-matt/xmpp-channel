@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Bare JIDs were treated as rooms on outbound sends.** The plugin had no
+  `messaging.inferTargetChatType`, so OpenClaw 9.x's fallback classified every
+  bare JID (`matt@example.org`) as a group. The delivery-mirror copy of a
+  message-tool send was then filed under `agent:<id>:xmpp:group:<jid>`, a session
+  no inbound DM reads, and the agent had no record of what it had sent when the
+  user replied. The hook now returns `group` for MUC-domain JIDs and explicit
+  `room:`/`group:`/`channel:` prefixes, and `direct` otherwise.
+  `resolveTargets` likewise resolves a JID only as the kind asked for: a person's
+  JID is no longer accepted as a room, and a room's JID is no longer accepted as a user.
+
 ### Added
 
 - **SecretRef support for account passwords.** `channels.xmpp.password` and
