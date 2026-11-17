@@ -196,7 +196,7 @@ export async function startXmppConnection(ctx: GatewayStartContext): Promise<voi
   setupPresenceHandlers(xmpp, accountId, log);
 
   // Setup MUC invite handler
-  setupMucInviteHandler(xmpp, accountId, nickname, log);
+  setupMucInviteHandler(xmpp, accountId, nickname, config, log);
 
   // Setup IQ handlers (XEP-0092 version, XEP-0202 time)
   setupIqHandlers(xmpp, accountId, log);

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Room messages fail closed** (`src/group-policy.ts`). `groupPolicy` now defaults to
+  `allowlist`. Under it a sender must have a known real JID listed in `groupAllowFrom`
+  (or `allowFrom`); an unknown real JID used to be let through. An empty list allows
+  nobody. A `type="groupchat"` stanza is ignored unless it comes from a room in `groups`
+  or one an owner invited the account to. Room invitations are followed only from
+  `allowFrom`.
+
 ### Fixed
 
 - **Bare JIDs were treated as rooms on outbound sends.** The plugin had no

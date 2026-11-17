@@ -76,7 +76,7 @@ XMPP/Jabber channel plugin for OpenClaw, supporting Prosody, ejabberd, and other
 | `dmPolicy` | string | `open` | Guest direct chat policy: `disabled`, `open`, `pairing`, `allowlist` |
 | `allowFrom` | string[] | `[]` | Bot owner JIDs (always have direct chat access, cannot be removed by guests) |
 | `dmAllowlist` | string[] | `[]` | JIDs allowed to direct-chat when dmPolicy is `allowlist` |
-| `groupPolicy` | string | `open` | Group policy: `open`, `allowlist` |
+| `groupPolicy` | string | `allowlist` | Group policy: `allowlist` (only `groupAllowFrom`, real JID required), `open` (anyone in a joined room) |
 | `groups` | string[] | `[]` | Group chat rooms to auto-join |
 | `nickname` | string | JID local | Nickname to use in group chats |
 | `groupAllowFrom` | string[] | `allowFrom` | Allowed senders in groups (falls back to `allowFrom`) |

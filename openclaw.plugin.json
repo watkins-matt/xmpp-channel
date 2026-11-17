@@ -160,7 +160,7 @@
           "open",
           "allowlist"
         ],
-        "default": "open",
+        "default": "allowlist",
         "description": "Group message policy"
       },
       "allowFrom": {
@@ -668,7 +668,7 @@
               "open",
               "allowlist"
             ],
-            "default": "open",
+            "default": "allowlist",
             "description": "Group message policy"
           },
           "allowFrom": {

@@ -15,6 +15,8 @@ import { activeClients, recordInboundMessageId } from "./state.js";
 import { sendChatState, sendChatMarker } from "./chat-state.js";
 import { isOmemoEnabled, encryptOmemoMessage, encryptMucOmemoMessage, isRoomOmemoCapable, buildOmemoMessageStanza } from "./omemo/index.js";
 import { getOccupantRealJid } from "./omemo/muc-occupants.js";
+import { decideGroupMessage } from "./group-policy.js";
+import { getPersistedRooms } from "./rooms.js";
 import { buildReplyElement, buildReplyFallbackPrefix, buildReplyFallbackMarker } from "./replies.js";
 
 /**
@@ -51,39 +53,23 @@ export async function handleInboundMessage(
   const isOwner = isSenderAllowed(allowFromList, senderBare);
   
   if (message.isGroup) {
-    // For groups: check groupPolicy first
-    const groupPolicy = config.groupPolicy ?? "open";
-    
-    if (groupPolicy === "open") {
-      // Open policy - allow all group messages
-      log?.debug?.(`[XMPP] Group message allowed (groupPolicy: open)`);
-    } else {
-      // Allowlist policy - check groupAllowFrom (falls back to allowFrom)
-      // For group messages, we need to check the sender's REAL JID, not the room JID
-      // The occupant JID is room@conference/nick, so we need to look up the real JID
-      const groupAllowList = normalizeAllowFrom(config.groupAllowFrom ?? config.allowFrom);
-      
-      // Try to get the sender's real JID from MUC occupant tracking
-      const senderNick = message.senderNick;
-      const roomJid = message.roomJid;
-      const realSenderJid = (senderNick && roomJid) 
-        ? getOccupantRealJid(accountId, roomJid, senderNick) 
-        : null;
-      
-      if (realSenderJid) {
-        // Non-anonymous room - check real JID against allowlist
-        if (!isSenderAllowed(groupAllowList, realSenderJid)) {
-          log?.debug?.(`[XMPP] Group message blocked: ${realSenderJid} (real JID for ${senderNick}) not in groupAllowFrom`);
-          return;
-        }
-        log?.debug?.(`[XMPP] Group message allowed: ${realSenderJid} in groupAllowFrom`);
-      } else {
-        // Anonymous/semi-anonymous room - can't verify real JID
-        // Allow message since the room is already configured in 'groups'
-        // If admin wants stricter control, they should use a non-anonymous room
-        log?.debug?.(`[XMPP] Group message allowed (anonymous room, cannot verify real JID for ${senderNick})`);
-      }
+    // Room messages fail closed: a joined room, and under "allowlist" a sender whose
+    // real JID is known and listed (group-policy.ts).
+    const senderNick = message.senderNick;
+    const roomJid = message.roomJid;
+    const realSenderJid = (senderNick && roomJid)
+      ? getOccupantRealJid(accountId, roomJid, senderNick)
+      : null;
+    const decision = decideGroupMessage(config, {
+      roomJid,
+      realSenderJid,
+      knownRooms: [...(config.groups ?? []), ...getPersistedRooms(accountId)],
+    });
+    if (!decision.allowed) {
+      log?.info?.(`[XMPP] Group message blocked: ${decision.reason} (room=${roomJid} nick=${JSON.stringify((senderNick ?? "").slice(0, 40))})`);
+      return;
     }
+    log?.debug?.(`[XMPP] Group message allowed: ${decision.reason}`);
   } else {
     // For direct chats: owners (allowFrom) always have access
     if (isOwner) {
@@ -611,31 +597,20 @@ export async function handleInboundReaction(params: {
   const isOwner = isSenderAllowed(allowFromList, senderBare);
 
   if (isGroup) {
-    // For groups: check groupPolicy first
-    const groupPolicy = config.groupPolicy ?? "open";
-
-    if (groupPolicy === "open") {
-      log?.debug?.(`[XMPP] Group reaction allowed (groupPolicy: open)`);
-    } else {
-      const groupAllowList = normalizeAllowFrom(config.groupAllowFrom ?? config.allowFrom);
-      
-      // Try to get the sender's real JID from MUC occupant tracking
-      const realSenderJid = (senderNick && roomJid) 
-        ? getOccupantRealJid(accountId, roomJid, senderNick) 
-        : null;
-      
-      if (realSenderJid) {
-        // Non-anonymous room - check real JID against allowlist
-        if (!isSenderAllowed(groupAllowList, realSenderJid)) {
-          log?.debug?.(`[XMPP] Group reaction blocked: ${realSenderJid} (real JID for ${senderNick}) not in groupAllowFrom`);
-          return;
-        }
-        log?.debug?.(`[XMPP] Group reaction allowed: ${realSenderJid} in groupAllowFrom`);
-      } else {
-        // Anonymous/semi-anonymous room - can't verify real JID
-        log?.debug?.(`[XMPP] Group reaction allowed (anonymous room, cannot verify real JID for ${senderNick})`);
-      }
+    // Same rule as a room message (group-policy.ts): fail closed.
+    const realSenderJid = (senderNick && roomJid)
+      ? getOccupantRealJid(accountId, roomJid, senderNick)
+      : null;
+    const decision = decideGroupMessage(config, {
+      roomJid,
+      realSenderJid,
+      knownRooms: [...(config.groups ?? []), ...getPersistedRooms(accountId)],
+    });
+    if (!decision.allowed) {
+      log?.info?.(`[XMPP] Group reaction blocked: ${decision.reason} (room=${roomJid} nick=${JSON.stringify((senderNick ?? "").slice(0, 40))})`);
+      return;
     }
+    log?.debug?.(`[XMPP] Group reaction allowed: ${decision.reason}`);
   } else {
     // For direct chats: owners (allowFrom) always have access
     if (!isOwner) {

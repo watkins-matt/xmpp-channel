@@ -101,7 +101,7 @@ export const XmppAccountSchema = z.object({
   dmPolicy: z.enum(["disabled", "open", "pairing", "allowlist"]).optional().default("open").describe("Direct chat policy: disabled (owners only), open (allow all), pairing (require pairing), allowlist (only dmAllowlist JIDs)"),
 
   /** Group message policy */
-  groupPolicy: z.enum(["open", "allowlist"]).optional().default("open").describe("Group message policy: open (respond to all), allowlist (require mention or allowlist)"),
+  groupPolicy: z.enum(["open", "allowlist"]).optional().default("allowlist").describe("Group message policy: allowlist (only senders in groupAllowFrom, the default), open (anyone in a joined room)"),
 
   /** Bot owner / trusted JIDs — always have direct chat access */
   allowFrom: z.array(z.string()).optional().describe("Bot owner JIDs (always have direct chat access, cannot be removed by guests)"),

@@ -9,7 +9,8 @@ import { xml } from "@xmpp/client";
 import type { Element } from "@xmpp/client";
 import type { client } from "@xmpp/client";
 import { bareJid } from "./config-schema.js";
-import type { Logger } from "./types.js";
+import type { Logger, XmppConfig } from "./types.js";
+import { isInviteAllowed } from "./group-policy.js";
 import { goneRooms, pendingMucJoins } from "./state.js";
 import { removePersistedRoom, handleMucInvite } from "./rooms.js";
 import { handleMucPresence } from "./omemo/muc-occupants.js";
@@ -136,6 +137,7 @@ export function setupMucInviteHandler(
   xmpp: ReturnType<typeof client>,
   accountId: string,
   nickname: string,
+  config: Pick<XmppConfig, "allowFrom">,
   log?: Logger
 ): void {
   xmpp.on("stanza", async (stanza) => {
@@ -155,7 +157,13 @@ export function setupMucInviteHandler(
     const inviterJid = bareJid(invite.attrs.from || "");
     const reason = invite.getChildText("reason") || "No reason provided";
     
-    log?.info?.(`[${accountId}] MUC invite: room=${roomJid} from=${inviterJid} reason="${reason}"`);
+    // Joining a room makes its messages reachable, so only an owner may invite.
+    if (!isInviteAllowed(config, inviterJid)) {
+      log?.warn?.(`[${accountId}] MUC invite ignored: room=${roomJid} from=${inviterJid || "(none)"} is not in allowFrom`);
+      return;
+    }
+
+    log?.info?.(`[${accountId}] MUC invite: room=${roomJid} from=${inviterJid} reason="${reason.slice(0, 80)}"`);
     
     await handleMucInvite(xmpp, roomJid, inviterJid, nickname, accountId, log);
   });
